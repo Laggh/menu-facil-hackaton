@@ -4,9 +4,13 @@ import type { Request, Response, NextFunction } from 'express'
 import bodyParser from 'body-parser'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // Inicialização do dotenv para usar variáveis de ambiente (estão no arquivo .env)
-dotenv.config()
+dotenv.config({ path: path.resolve(__dirname, '../.env') })
 
 // Constantes
 const PORT = process.env.PORT || 3000
@@ -30,11 +34,12 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 })
 
 // ========== ROTAS ==========
+// IMPORT DAS ROTAS
+import aiRoutes from './user/aiRoutes'
 
-// Rota de produtos (simples, retorna array vazio por enquanto)
-app.get('/api/produtos', (req: Request, res: Response) => {
-  res.json({ produtos: [] })
-})
+// USO DAS ROTAS
+app.use('/api/ia/', aiRoutes()) // Rota para funcionalidades de IA
+
 
 // Rota de ping
 app.get('/ping', (req: Request, res: Response) => {

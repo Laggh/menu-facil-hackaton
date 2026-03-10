@@ -5,19 +5,22 @@
   "license": "ISC",
   "author": "Renan Andrade",
   "type": "module",
-  "main": "index.ts",
+  "main": "src/index.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "tsx index.ts",
-    "dev": "nodemon --exec tsx index.ts"
+    "start": "tsx src/index.ts",
+    "dev": "nodemon --exec tsx src/index.ts"
   },
   "dependencies": {
-    "express": "^4.18.2",
+    "@google/genai": "^1.44.0",
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2"
   },
   "devDependencies": {
+    "@types/body-parser": "^1.19.2",
+    "@types/cors": "^2.8.13",
     "@types/express": "^4.17.17",
     "@types/node": "^20.0.0",
     "nodemon": "^3.0.1",

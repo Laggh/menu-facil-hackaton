@@ -2,6 +2,11 @@
 import { checkbox } from '@inquirer/prompts';
 import { execSync } from 'child_process';
 import chalk from 'chalk';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const tasks = [
     {
@@ -60,3 +65,28 @@ selectedTasks.forEach((task, index) => {
 });
 
 console.log(chalk.cyan.bold('✨ Setup completo!\n'));
+
+// Copia o .env da raiz para server e web
+console.log(chalk.bold.cyan('📋 Copiando arquivo .env para pastas...\n'));
+
+try {
+    const rootEnvPath = path.join(__dirname, '..', '.env');
+    const serverEnvPath = path.join(__dirname, '..', 'server', '.env');
+    const webEnvPath = path.join(__dirname, '..', 'web', '.env');
+
+    if (fs.existsSync(rootEnvPath)) {
+        const envContent = fs.readFileSync(rootEnvPath, 'utf-8');
+        
+        // Copia para server
+        fs.writeFileSync(serverEnvPath, envContent);
+        console.log(chalk.green(`✅ .env copiado para server`));
+        
+        // Copia para web
+        fs.writeFileSync(webEnvPath, envContent);
+        console.log(chalk.green(`✅ .env copiado para web\n`));
+    } else {
+        console.log(chalk.yellow(`⚠️  Arquivo .env não encontrado na raiz\n`));
+    }
+} catch (err) {
+    console.error(chalk.red(`❌ Erro ao copiar .env: ${err.message}\n`));
+}

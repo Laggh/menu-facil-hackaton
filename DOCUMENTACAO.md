@@ -107,7 +107,7 @@ Registro de compra do usuário. Usado para atualizar o perfil comportamental.
 ### Funcionalidade 3: Upsell Contextual (Carrinho)
 
 * **Como funciona:** Ao adicionar itens no carrinho, o front-end envia os itens atuais e a `etiqueta` do usuário para o back-end. A IA analisa (Ex: *Tem hambúrguer, o usuário gosta de refri zero*).
-* **Retorno:** Sugere proativamente um item (Ex: Coca-Cola Zero).
+* **Retorno:** Sugere proativamente três item (Ex: Coca-Cola Zero).
 * **Critério do Hackathon:** Pontua pesado em **Receita (3)**.
 
 ### Funcionalidade 4: Resumo Pós-Venda (Memória do Vendedor)
@@ -147,6 +147,8 @@ Registro de compra do usuário. Usado para atualizar o perfil comportamental.
 
 Todas as requisições do App passam por aqui via Axios (`api.js`).
 
+> **Convenção:** A IA é um detalhe de implementação, não parte da URL. Rotas são orientadas a recursos. Onde há inteligência por baixo, está indicado com 🤖.
+
 ### `GET /produtos`
 
 * **Descrição:** Retorna o cardápio completo.
@@ -154,7 +156,17 @@ Todas as requisições do App passam por aqui via Axios (`api.js`).
 * **Retorno:** Array com todos os produtos (ou filtrados por categoria).
 * **Erros:** `404` se categoria não existir.
 
-### `GET /ia/sugestoes-personalizadas`
+### `GET /produtos/busca` 🤖
+
+* **Descrição:** Busca semântica inteligente de produtos por intenção ou restrição alimentar.
+* **Query Params:** `?q=` (ex: `?q=quero algo leve sem lactose`).
+* **Lógica:**
+  - Gemini analisa a frase conversacional e retorna produtos que correspondem à intenção + restrições.
+  - Fallback busca por palavras-chave simples nos campos `nome`, `definicao` e `ingredientes`.
+* **Retorno:** Array com produtos que combinam.
+* **Erros:** `400` se `q` estiver vazio; `500` se falha (retorna fallback).
+
+### `GET /produtos/sugestoes` 🤖
 
 * **Descrição:** Retorna 3 produtos sugeridos para o usuário (sessão "🌟 Feito para Você").
 * **Query Params:** `?usuarioId=` (ex: `?usuarioId=1`).
@@ -164,37 +176,27 @@ Todas as requisições do App passam por aqui via Axios (`api.js`).
 * **Retorno:** Array com 3 produtos sugeridos.
 * **Erros:** `404` se usuário não existir; `500` se falha (retorna fallback).
 
-### `GET /ia/buscar`
-
-* **Descrição:** Busca semântica inteligente de produtos.
-* **Query Params:** `?q=` (ex: `?q=quero algo leve sem lactose`).
-* **Lógica:**
-  - Gemini analisa a frase conversacional e retorna produtos que correspondem intenção + restrições.
-  - Fallback busca por palavras-chave simples nos campos `nome`, `definicao` e `ingredientes`.
-* **Retorno:** Array com produtos que combinam.
-* **Erros:** `400` se `q` estiver vazio; `500` se falha (retorna fallback).
-
-### `POST /ia/upsell`
-
-* **Payload:** `{ "usuarioId": "1", "carrinhoIds": ["uuid-produto-1", "uuid-produto-2"] }`
-* **Ação:** Busca a `etiqueta` do usuário no Upstash. Envia o array de IDs dos produtos no carrinho junto com a etiqueta para o Gemini 3.0 (com `responseSchema`).
-* **Lógica:**
-  - Gemini analisa os produtos no carrinho + etiqueta e sugere um complemento relevante.
-  - Fallback retorna um produto aleatório de uma categoria que não está no carrinho (ex: se só tem prato principal, sugere bebida ou sobremesa).
-* **Retorno:** JSON com o objeto do produto sugerido (ID, nome, descrição, preço, imagem). Pode retornar `null` se falhar.
-* **Erros:** `404` se usuário não existir ou se algum `carrinhoId` for inválido; `500` se falha (retorna fallback ou null).
-
-### `POST /ia/gerar-produto` (Admin)
+### `POST /produtos/gerar` (Admin) 🤖
 
 * **Payload:** `{ "nome": "Macarrão à Bolonhesa", "definicao": "(opcional)" }`
 * **Ação:** Chama o Gemini pedindo a estruturação técnica do prato. Se apenas o nome for enviado, a IA gera a definição. Se a definição também for fornecida, usa ambas para maior precisão.
 * **Retorno:** JSON com definição, ingredientes (array) e restrições (array). **Retorna `null` caso a IA não consiga identificar ou estruturar o produto corretamente.**
 * **Erros:** `400` se nome estiver vazio; `500` se falha (retorna null).
 
+### `POST /carrinho/upsell` 🤖
+
+* **Payload:** `{ "usuarioId": "1", "carrinhoIds": ["uuid-produto-1", "uuid-produto-2"] }`
+* **Ação:** Busca a `etiqueta` do usuário no Upstash. Envia o array de IDs dos produtos no carrinho junto com a etiqueta para o Gemini 3.0 (com `responseSchema`).
+* **Lógica:**
+  - Gemini analisa os produtos no carrinho + etiqueta e sugere um complemento relevante.
+  - Fallback retorna um produto aleatório de uma categoria que não está no carrinho (ex: se só tem prato principal, sugere bebida ou sobremesa).
+* **Retorno:** JSON com o objeto do produto sugerido (ID, nome, descrição, preço, imagem). Pode retornar `null` se não houver sugestão válida.
+* **Erros:** `404` se usuário não existir ou se algum `carrinhoId` for inválido; `500` se falha (retorna fallback ou null).
+
 ### `POST /pedidos/checkout`
 
 * **Payload:** `{ "usuarioId": "1", "produtos": [{"id": "uuid", "nome": "X-Vulcano", "preco": 35.90, "quantidade": 1}], "horario": "2026-03-10T19:30:00Z", "preco_total": 35.90 }`
-* **Ação:** Salva o pedido no banco. Dispara função assíncrona (não bloqueante) que envia o pedido para o Gemini atualizar a `etiqueta` do usuário, salvando a nova string no Upstash.
+* **Ação:** Salva o pedido no banco. Dispara função assíncrona (não bloqueante) que envia o pedido para o Gemini atualizar a `etiqueta` do usuário, salvando a nova string no Upstash. 🤖
 * **Lógica Assíncrona:** Gemini reescreve a etiqueta com novos insights sobre preferências do usuário (ex: "começou a pedir sobremesas", "prefere bebidas sem açúcar").
 * **Retorno:** JSON com ID do pedido criado e status `200 (Sucesso)`.
 * **Erros:** `400` se algum campo obrigatório faltar; `404` se usuário não existir; `500` se falha ao salvar.

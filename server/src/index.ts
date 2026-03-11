@@ -6,6 +6,7 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import db from './dbHelpers'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -36,10 +37,23 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // ========== ROTAS ==========
 // IMPORT DAS ROTAS
 import aiRoutes from './user/aiRoutes'
+import productRoutes from './user/productRoutes'
 
 // USO DAS ROTAS
 app.use('/api/ia/', aiRoutes()) // Rota para funcionalidades de IA
+app.use('/api/products/', productRoutes()) // Rota para funcionalidades de produtos
 
+app.get("/db", async (req: Request, res: Response) => {
+    try {
+        await db.set("test_key", "Hello, Redis!")
+        const value = await db.get("test_key")
+        res.json({ value })
+    }
+    catch (error) {
+        console.error("Erro ao acessar o banco de dados:", error)
+        res.status(500).json({ error: "Erro ao acessar o banco de dados" })
+    } 
+})
 
 // Rota de ping
 app.get('/ping', (req: Request, res: Response) => {

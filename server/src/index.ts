@@ -39,12 +39,14 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 import aiRoutes from './user/aiRoutes'
 import productRoutes from './user/productRoutes'
 import orderRoutes from './user/orderRoutes'
+import logRoutes from './user/logRoutes'
 import uploadRoute from './uploadRoute'
 
 // USO DAS ROTAS
 app.use('/api/ia/', aiRoutes()) // Rota para funcionalidades de IA
 app.use('/api/products/', productRoutes()) // Rota para funcionalidades de produtos
 app.use('/api/orders/', orderRoutes()) // Rota para pedidos
+app.use('/api/log', logRoutes()) // Rota para logs
 app.use('/api/upload', uploadRoute()) // Rota para upload de imagens
 
 app.get("/db", async (req: Request, res: Response) => {

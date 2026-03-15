@@ -53,6 +53,10 @@ const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, definicao }),
       }),
+
+    /** GET /api/products/busca — busca semântica inteligente (com fallback) */
+    search: (query: string): Promise<{ products: Produto[] }> =>
+      request(`/api/products/busca?q=${encodeURIComponent(query)}`),
   },
 
   ai: {

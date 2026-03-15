@@ -76,4 +76,14 @@ export default {
       },
     },
 
+    log: {
+      gemini: async (logData: { prompt: string; timeMs: number; response: string; model: string }): Promise<void> => {
+        try {
+          await redis.lpush("gemini_log", JSON.stringify(logData));
+        } catch (error) {
+          console.error("Erro ao fazer log da requisição Gemini:", error);
+        }
+      },
+    },
+
 }

@@ -86,29 +86,21 @@ export function ProductModal({ product, onClose, onSave }: Props) {
     setIngredientesStr(data.ingredientes.join(', '));
   };
 
-  const handleNomeBlur = async () => {
-    if (product || !form.nome.trim()) return;
+  const handleGenerateAI = async () => {
+    if (!form.nome.trim()) {
+      setError('Preencha o nome do produto antes de gerar com IA.');
+      return;
+    }
     setAiLoading(true);
     setNeedsDefinicao(false);
+    setError(null);
     try {
-      const { data } = await api.products.generateDescription(form.nome);
-      applyAiData(data);
-    } catch {
-      setNeedsDefinicao(true);
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
-  const handleDefinicaoBlur = async () => {
-    if (!needsDefinicao || !form.nome.trim() || !form.definicao.trim()) return;
-    setAiLoading(true);
-    try {
-      const { data } = await api.products.generateDescription(form.nome, form.definicao);
+      const { data } = await api.products.generateDescription(form.nome, form.definicao || '');
       applyAiData(data);
       setNeedsDefinicao(false);
     } catch {
-      // still not enough info, keep hint visible
+      setNeedsDefinicao(true);
+      setError('A IA precisa de mais detalhes sobre esse produto. Preencha o campo "Definição" e tente novamente.');
     } finally {
       setAiLoading(false);
     }
@@ -158,54 +150,84 @@ export function ProductModal({ product, onClose, onSave }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative z-10 transition-transform transform">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white sticky top-0 z-20">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-3">
             {product ? 'Editar Produto' : 'Novo Produto'}
             {aiLoading && (
-              <span className="inline-block w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
+              <span className="flex h-5 w-5 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-5 w-5 bg-orange-500 flex items-center justify-center">
+                  <svg className="w-3 h-3 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </span>
+              </span>
             )}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors text-lg leading-none"
+            className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors text-lg leading-none focus:outline-none focus:ring-2 focus:ring-gray-200"
           >
             ✕
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+        <form onSubmit={handleSubmit} className="px-6 py-6 space-y-6">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
-              {error}
+            <div className="bg-red-50 border border-red-100 text-red-600 text-sm font-medium rounded-xl px-4 py-3 flex items-start gap-3">
+              <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <p>{error}</p>
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-5">
             {/* Nome */}
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-sm font-bold text-gray-700 mb-1.5">Nome <span className="text-orange-500">*</span></label>
               <input
                 required
                 type="text"
                 value={form.nome}
                 onChange={(e) => setForm((p) => ({ ...p, nome: e.target.value }))}
-                onBlur={handleNomeBlur}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all bg-gray-50 hover:bg-white focus:bg-white"
                 placeholder="Ex: Frango Grelhado"
               />
             </div>
 
+            {/* Preço */}
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-sm font-bold text-gray-700 mb-1.5">Preço (R$) <span className="text-orange-500">*</span></label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 font-medium">R$</span>
+                <input
+                  required
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={precoStr}
+                  onChange={(e) => setPrecoStr(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all bg-gray-50 hover:bg-white focus:bg-white"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
             {/* Categoria */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Categoria *</label>
+            <div className="col-span-2">
+              <label className="block text-sm font-bold text-gray-700 mb-1.5">Categoria <span className="text-orange-500">*</span></label>
               <select
                 value={form.categoria}
                 onChange={(e) => setForm((p) => ({ ...p, categoria: e.target.value as Categoria }))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all bg-gray-50 hover:bg-white focus:bg-white appearance-none cursor-pointer"
+                style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 1rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2.5rem' }}
               >
                 {CATEGORIAS.map((c) => (
                   <option key={c.value} value={c.value}>{c.label}</option>
@@ -213,24 +235,9 @@ export function ProductModal({ product, onClose, onSave }: Props) {
               </select>
             </div>
 
-            {/* Preço */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Preço (R$) *</label>
-              <input
-                required
-                type="number"
-                min="0"
-                step="0.01"
-                value={precoStr}
-                onChange={(e) => setPrecoStr(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                placeholder="0.00"
-              />
-            </div>
-
             {/* Upload de Imagem */}
             <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Imagem</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1.5">Imagem</label>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -240,30 +247,30 @@ export function ProductModal({ product, onClose, onSave }: Props) {
                 id="image-upload-input"
               />
               {uploadingImage ? (
-                <div className="flex items-center justify-center w-full h-24 border-2 border-dashed border-orange-300 rounded-lg bg-orange-50">
-                  <span className="text-sm text-orange-500 animate-pulse">Enviando imagem...</span>
+                <div className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-orange-300 rounded-xl bg-orange-50/50 gap-2">
+                  <div className="w-6 h-6 border-2 border-orange-200 border-t-orange-500 rounded-full animate-spin"></div>
+                  <span className="text-sm font-medium text-orange-600">Fazendo upload...</span>
                 </div>
               ) : form.imagem_url ? (
-                <div className="flex items-center gap-4 p-3 border border-gray-200 rounded-lg bg-gray-50">
+                <div className="flex items-center gap-4 p-4 border border-gray-200 rounded-xl bg-white shadow-sm">
                   <img
                     src={form.imagem_url}
                     alt="Preview"
-                    className="w-16 h-16 object-cover rounded-lg border border-gray-200 flex-shrink-0"
+                    className="w-20 h-20 object-cover rounded-xl border border-gray-100 flex-shrink-0 shadow-sm"
                   />
-                  <div className="flex flex-col gap-1 min-w-0">
-                    <span className="text-xs text-gray-500 truncate">{form.imagem_url}</span>
-                    <div className="flex gap-2">
+                  <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+                    <span className="text-xs font-medium text-gray-500 truncate bg-gray-50 px-2 py-1 rounded-md">{form.imagem_url}</span>
+                    <div className="flex gap-3 mt-1">
                       <label
                         htmlFor="image-upload-input"
-                        className="text-sm text-orange-500 hover:text-orange-600 cursor-pointer font-medium"
+                        className="text-sm text-blue-600 hover:text-blue-700 cursor-pointer font-bold transition-colors"
                       >
                         Trocar imagem
                       </label>
-                      <span className="text-gray-300">·</span>
                       <button
                         type="button"
                         onClick={() => setForm((p) => ({ ...p, imagem_url: '' }))}
-                        className="text-sm text-red-400 hover:text-red-600 font-medium"
+                        className="text-sm text-red-500 hover:text-red-700 font-bold transition-colors"
                       >
                         Remover
                       </button>
@@ -273,104 +280,150 @@ export function ProductModal({ product, onClose, onSave }: Props) {
               ) : (
                 <label
                   htmlFor="image-upload-input"
-                  className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-orange-50 hover:border-orange-400 transition-colors"
+                  className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer bg-gray-50 hover:bg-orange-50/50 hover:border-orange-400/50 transition-all group"
                 >
-                  <span className="text-2xl mb-1">🖼️</span>
-                  <span className="text-sm text-gray-500">Clique para selecionar uma imagem</span>
-                  <span className="text-xs text-gray-400 mt-0.5">PNG, JPG, WEBP até 4 MB</span>
+                  <div className="w-10 h-10 bg-white rounded-full shadow-sm flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                    <svg className="w-5 h-5 text-gray-400 group-hover:text-orange-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <span className="text-sm font-medium text-gray-600">Clique para selecionar uma imagem</span>
+                  <span className="text-xs text-gray-400 mt-1">PNG, JPG, WEBP até 4 MB</span>
                 </label>
               )}
             </div>
 
             {/* Definição */}
             <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Definição{' '}
-                <span className="text-gray-400 font-normal">(usada para geração de descrição pela IA)</span>
+              <label className="block text-sm font-bold text-gray-700 mb-1.5 flex justify-between items-end">
+                <span>
+                  Definição{' '}
+                  <span className="text-gray-400 font-medium">(usada para geração de descrição pela IA)</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleGenerateAI}
+                  disabled={aiLoading}
+                  className="flex items-center gap-1.5 text-xs font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <span className="text-sm">✨</span> Gerar com IA
+                </button>
               </label>
               <textarea
                 rows={2}
                 value={form.definicao}
                 onChange={(e) => setForm((p) => ({ ...p, definicao: e.target.value }))}
-                onBlur={handleDefinicaoBlur}
-                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none ${
-                  needsDefinicao ? 'border-orange-400 bg-orange-50' : 'border-gray-300'
+                className={`w-full rounded-xl px-4 py-3 text-sm focus:outline-none transition-all resize-none ${
+                  needsDefinicao 
+                    ? 'border-2 border-orange-400 bg-orange-50 shadow-[0_0_0_4px_rgba(251,146,60,0.1)]' 
+                    : 'border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 hover:bg-white focus:bg-white'
                 }`}
-                placeholder="Descreva o produto de forma objetiva para a IA"
+                placeholder="Descreva o produto de forma objetiva (ex: 'Hambúrguer artesanal carne de 180g e queijo cheddar')"
               />
               {needsDefinicao && (
-                <p className="text-xs text-orange-500 mt-1">
-                  ✦ A IA precisou de mais detalhes. Preencha a definição e clique fora do campo para gerar automaticamente.
-                </p>
+                <div className="flex items-center gap-2 mt-2 text-orange-600 bg-orange-50 px-3 py-2 rounded-lg">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <p className="text-xs font-semibold">
+                    A IA precisa de mais detalhes para gerar a descrição.
+                  </p>
+                </div>
               )}
             </div>
 
             {/* Descrição */}
             <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1.5">Descrição para o cliente</label>
               <textarea
                 rows={3}
                 value={form.descricao}
                 onChange={(e) => setForm((p) => ({ ...p, descricao: e.target.value }))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
-                placeholder="Descrição exibida para o cliente"
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all bg-gray-50 hover:bg-white focus:bg-white resize-none"
+                placeholder="Texto atraente exibido no cardápio..."
               />
             </div>
 
             {/* Ingredientes */}
             <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-bold text-gray-700 mb-1.5">
                 Ingredientes{' '}
-                <span className="text-gray-400 font-normal">(separados por vírgula)</span>
+                <span className="text-gray-400 font-medium">(separados por vírgula)</span>
               </label>
               <input
                 type="text"
                 value={ingredientesStr}
                 onChange={(e) => setIngredientesStr(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all bg-gray-50 hover:bg-white focus:bg-white"
                 placeholder="Arroz, Feijão, Frango..."
               />
             </div>
 
             {/* Restrições */}
             <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Restrições Alimentares
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {RestricaoArray.map((r) => (
-                  <label
-                    key={r}
-                    className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={form.restricoes.includes(r)}
-                      onChange={() => toggleRestricao(r)}
-                      className="accent-orange-500 w-4 h-4"
-                    />
-                    {RESTRICAO_LABELS[r]}
-                  </label>
-                ))}
+              <div className="mb-3">
+                <label className="block text-sm font-bold text-gray-700">Restrições Alimentares</label>
+                <p className="text-xs text-gray-500 mt-0.5">Selecione as condições que <strong className="text-gray-700">impedem</strong> consumir o produto.</p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {RestricaoArray.map((r) => {
+                  const isChecked = form.restricoes.includes(r);
+                  return (
+                    <label
+                      key={r}
+                      className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                        isChecked 
+                          ? 'border-orange-500 bg-orange-50 shadow-sm' 
+                          : 'border-gray-200 bg-white hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${
+                        isChecked ? 'bg-orange-500 border-orange-500' : 'border-gray-300 bg-white'
+                      }`}>
+                        {isChecked && (
+                          <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleRestricao(r)}
+                        className="hidden"
+                      />
+                      <span className={`text-sm font-medium ${isChecked ? 'text-orange-900' : 'text-gray-700'}`}>
+                        {RESTRICAO_LABELS[r]}
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+          <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-gray-100 sticky bottom-0 bg-white py-4 -mx-6 px-6 shadow-[0_-10px_15px_-3px_rgba(255,255,255,0.9)]">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              className="px-5 py-2.5 text-sm font-bold text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-all shadow-sm active:scale-95"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading || uploadingImage}
-              className="px-4 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-60 rounded-lg transition-colors"
+              className="px-5 py-2.5 text-sm font-bold text-white bg-gray-900 hover:bg-black disabled:opacity-50 disabled:active:scale-100 rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-2"
             >
-              {loading ? 'Salvando...' : 'Salvar Produto'}
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span>Salvando...</span>
+                </>
+              ) : (
+                <>Salvar Produto</>
+              )}
             </button>
           </div>
         </form>

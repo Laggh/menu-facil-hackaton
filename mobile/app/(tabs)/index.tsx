@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import type { Produto, Categoria } from '@shared/types';
 import api from '@/lib/api';
 import { useCart } from '@/context/cart-context';
@@ -104,9 +104,9 @@ function ProductCard({ product }: { product: Produto }) {
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
+  const router = useRouter();
   const [products, setProducts] = useState<Produto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<Categoria>('PRATO_PRINCIPAL');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const sectionListRef = useRef<SectionList>(null);
@@ -124,6 +124,15 @@ export default function HomeScreen() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Limpa o estado ao voltar para a home
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        // Este código roda quando a tela perde o foco
+      };
+    }, [])
+  );
+
   const scrollChipsToShow = (cat: Categoria) => {
     const layout = chipLayouts.current[cat];
     if (!layout || !categoryScrollRef.current) return;
@@ -139,18 +148,11 @@ export default function HomeScreen() {
     }
   };
 
-  const filtered = search.trim()
-    ? products.filter(p =>
-        p.nome.toLowerCase().includes(search.toLowerCase()) ||
-        p.descricao.toLowerCase().includes(search.toLowerCase())
-      )
-    : products;
-
   const sections = CATEGORIAS
     .map(c => ({
       key: c.key,
       title: c.sectionLabel,
-      data: filtered.filter(p => p.categoria === c.key),
+      data: products.filter(p => p.categoria === c.key),
     }))
     .filter(s => s.data.length > 0);
 
@@ -169,16 +171,15 @@ export default function HomeScreen() {
 
       {/* Search bar */}
       <View style={styles.searchRow}>
-        <View style={styles.searchBox}>
-          <MaterialIcons name="search" size={18} color="#999" style={{ marginRight: 6 }} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Pesquisa com IA"
-            placeholderTextColor="#999"
-            value={search}
-            onChangeText={setSearch}
-          />
-        </View>
+        <TouchableOpacity 
+          style={styles.searchBox}
+          onPress={() => router.push('/(tabs)/search')}
+          activeOpacity={0.65}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <MaterialIcons name="search" size={18} color="#999" style={{ marginRight: 8 }} />
+          <Text style={styles.searchPlaceholder}>Pesquisa com IA</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.menuButton} onPress={() => setSidebarOpen(true)}>
           <MaterialIcons name="menu" size={22} color="#333" />
         </TouchableOpacity>
@@ -250,9 +251,9 @@ const styles = StyleSheet.create({
 
   // Search
   searchRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
-  searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F5F5', borderRadius: 8, paddingHorizontal: 10, height: 40 },
+  searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', backgroundColor: '#F5F5F5', borderRadius: 8, paddingHorizontal: 12, height: 40 },
 
-  searchInput: { flex: 1, fontSize: 14, color: '#333', height: '100%' },
+  searchPlaceholder: { flex: 1, fontSize: 14, color: '#999', paddingVertical: 8 },
   menuButton: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center' },
 
 

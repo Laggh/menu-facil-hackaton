@@ -79,6 +79,11 @@ const api = {
       request(`/api/ia/generate?prompt=${encodeURIComponent(prompt)}`),
   },
 
+  logs: {
+    /** GET /api/log — retorna os logs do Gemini */
+    getAll: (): Promise<{ logs: any[] }> => request('/api/log'),
+  },
+
   /** POST /api/upload — faz upload de uma imagem para o UploadThing */
   uploadImage,
 };

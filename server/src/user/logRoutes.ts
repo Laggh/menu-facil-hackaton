@@ -8,7 +8,7 @@ export default () => {
 
     router.get("/", async (req: Request, res: Response) => {
         try {
-            const logs = await db.get("gemini_log") as string[] | null;
+            const logs = await db.redis.lrange("gemini_log", 0, -1) as string[];
             
             if (!logs || logs.length === 0) {
                 res.json({ logs: [] });

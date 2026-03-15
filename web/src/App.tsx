@@ -21,7 +21,7 @@ const CATEGORIA_COLORS: Record<Categoria, string> = {
 
 const ALL_CATEGORIAS = Object.keys(CATEGORIA_LABELS) as Categoria[];
 
-type Tab = 'DASHBOARD' | 'CARDAPIO' | 'PEDIDOS';
+type Tab = 'DASHBOARD' | 'CARDAPIO' | 'PEDIDOS' | 'LOGS';
 
 type Toast = {
   id: number;
@@ -32,7 +32,9 @@ type Toast = {
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('CARDAPIO');
   const [products, setProducts] = useState<Produto[]>([]);
+  const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingLogs, setLoadingLogs] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Produto | null>(null);
@@ -40,6 +42,7 @@ function App() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<Categoria | 'ALL'>('ALL');
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [expandedLogId, setExpandedLogId] = useState<number | null>(null);
 
   const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     const id = Date.now();
@@ -62,9 +65,26 @@ function App() {
     }
   }, []);
 
+  const loadLogs = useCallback(async () => {
+    try {
+      setLoadingLogs(true);
+      setError(null);
+      const { logs } = await api.logs.getAll();
+      setLogs(logs);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao carregar logs');
+    } finally {
+      setLoadingLogs(false);
+    }
+  }, []);
+
   useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
+    if (activeTab === 'CARDAPIO') {
+      loadProducts();
+    } else if (activeTab === 'LOGS') {
+      loadLogs();
+    }
+  }, [activeTab, loadProducts, loadLogs]);
 
   const handleCreate = () => {
     setEditingProduct(null);
@@ -172,6 +192,19 @@ function App() {
             </svg>
             Cardápio
           </button>
+
+          <p className="px-2 text-xs font-bold text-gray-400 uppercase tracking-wider mt-6 mb-3">Sistema</p>
+          <button
+            onClick={() => setActiveTab('LOGS')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-colors ${
+              activeTab === 'LOGS' ? 'bg-gray-800 text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+            }`}
+          >
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+            </svg>
+            Logs da IA (Gemini)
+          </button>
         </nav>
         <div className="p-4 border-t border-gray-100">
           <div className="flex items-center gap-3 px-2 py-2">
@@ -193,6 +226,7 @@ function App() {
               {activeTab === 'DASHBOARD' && 'Dashboard'}
               {activeTab === 'PEDIDOS' && 'Fila de Pedidos'}
               {activeTab === 'CARDAPIO' && 'Gerenciamento de Cardápio'}
+              {activeTab === 'LOGS' && 'Logs de Integração da IA'}
             </h2>
           </div>
           {activeTab === 'CARDAPIO' && (
@@ -424,6 +458,105 @@ function App() {
         )}
             </div>
           )}
+          
+          {activeTab === 'LOGS' && (
+            <div className="bg-white rounded-xl shadow-[0_4px_24px_-8px_rgba(0,0,0,0.08)] border border-gray-100 p-6 overscroll-contain">
+              {loadingLogs ? (
+                <div className="flex flex-col items-center justify-center py-20">
+                  <div className="w-10 h-10 border-4 border-gray-100 border-t-orange-600 rounded-full animate-spin"></div>
+                  <p className="mt-4 text-gray-500 font-medium">Carregando logs...</p>
+                </div>
+              ) : error ? (
+                <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl flex items-center justify-center gap-3">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="font-medium">{error}</p>
+                </div>
+              ) : (
+                <div className="space-y-6 max-w-[100vw] overflow-x-hidden">
+                  <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+                     <h3 className="text-lg font-bold text-gray-900">Histórico de IA</h3>
+                     <span className="bg-orange-50 text-orange-600 px-3 py-1 rounded-full text-xs font-semibold">
+                       {logs.length} requisições
+                     </span>
+                  </div>
+                  {logs.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">Nenhum log encontrado.</div>
+                  ) : (
+                    <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+                      {logs.map((log: any, index: number) => (
+                        <div key={index} className="bg-gray-50 border border-gray-200 rounded-xl overflow-hidden text-sm transition-all duration-200">
+                           <button 
+                             onClick={() => setExpandedLogId(expandedLogId === index ? null : index)}
+                             className="w-full flex justify-between items-center p-4 hover:bg-gray-100 transition-colors"
+                           >
+                             <div className="flex items-center gap-2">
+                               <div className="font-semibold text-gray-700">Requisição {logs.length - index}</div>
+                               {/* Lightning icon for Gemini 2.5 Flash */}
+                               {log.model && typeof log.model === 'string' && log.model.includes('2.5') && log.model.includes('flash') && (
+                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-yellow-500">
+                                   <path fillRule="evenodd" d="M14.615 1.595a.75.75 0 01.359.852L12.982 9.75h7.268a.75.75 0 01.548 1.262l-10.5 11.25a.75.75 0 01-1.272-.71l1.992-7.302H3.75a.75.75 0 01-.548-1.262l10.5-11.25a.75.75 0 01.913-.143z" clipRule="evenodd" />
+                                 </svg>
+                               )}
+                               <div className={`p-1 rounded-full transition-transform ${expandedLogId === index ? 'rotate-180' : ''}`}>
+                                 <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                 </svg>
+                               </div>
+                             </div>
+                             <div className="text-xs text-gray-400 font-mono text-right">
+                               {log.timestamp ? new Date(log.timestamp).toLocaleString() : ''}
+                               <br />
+                               {log.processingTimeMs && `${log.processingTimeMs}ms`}
+                             </div>
+                           </button>
+                           
+                           {/* Log Details - Collapsible */}
+                           {expandedLogId === index && (
+                             <div className="p-4 border-t border-gray-200 bg-white">
+                               {log.model && (
+                                 <div className="mb-4 text-xs font-medium text-gray-500">
+                                   Modelo: <span className="text-gray-900 font-mono ml-1 bg-gray-100 px-2 py-1 rounded">{log.model}</span>
+                                 </div>
+                               )}
+                               {log.request && (
+                                 <div className="mt-3">
+                                   <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Prompt / Mensagens</div>
+                                   <pre className="bg-gray-800 text-green-400 p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono text-xs shadow-inner">
+                                     {typeof log.request === 'string' ? log.request : JSON.stringify(log.request, null, 2)}
+                                   </pre>
+                                 </div>
+                               )}
+                               
+                               {log.response && (
+                                 <div className="mt-4">
+                                   <div className="text-xs font-bold text-blue-500 uppercase tracking-wider mb-1">Resposta / Output</div>
+                                   <pre className="bg-gray-50 text-gray-800 border border-gray-300 p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono text-xs">
+                                     {typeof log.response === 'string' ? log.response : JSON.stringify(log.response, null, 2)}
+                                   </pre>
+                                 </div>
+                               )}
+
+                               {log.raw_json && !log.request && !log.response && (
+                                 <div className="mt-4">
+                                   <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Raw JSON</div>
+                                   <pre className="bg-gray-900 text-gray-300 p-3 rounded-lg overflow-x-auto whitespace-pre-wrap font-mono text-xs shadow-inner">
+                                     {log.raw_json}
+                                   </pre>
+                                 </div>
+                               )}
+                             </div>
+                           )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
         </main>
       </div>
 

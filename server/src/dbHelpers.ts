@@ -15,6 +15,7 @@ const redis = new Redis({
 })
 
 export default {
+    redis,
     get: redis.get,
     set: redis.set,
     del: redis.del,

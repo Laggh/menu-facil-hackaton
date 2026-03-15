@@ -1,98 +1,289 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  SectionList,
+  ScrollView,
+  StyleSheet,
+  Image,
+  SafeAreaView,
+  Modal,
+  Animated,
+  useWindowDimensions,
+  ActivityIndicator,
+} from 'react-native';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useRouter } from 'expo-router';
+import type { Produto, Categoria } from '@shared/types';
+import api from '@/lib/api';
+import { useCart } from '@/context/cart-context';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+const PRICE_COLOR = '#00BFA5';
+const ACCENT_COLOR = '#6C63FF';
+
+const CATEGORIAS: { key: Categoria; label: string; sectionLabel: string }[] = [
+  { key: 'PRATO_PRINCIPAL',  label: 'Pratos',           sectionLabel: 'Pratos Principais' },
+  { key: 'ACOMPANHAMENTOS',  label: 'Acompanhamentos',  sectionLabel: 'Acompanhamentos'   },
+  { key: 'BEBIDAS',          label: 'Bebidas',          sectionLabel: 'Bebidas'            },
+  { key: 'SOBREMESA',        label: 'Sobremesas',       sectionLabel: 'Sobremesas'         },
+  { key: 'OUTROS',           label: 'Outros',           sectionLabel: 'Outros'             },
+];
+
+// ─── Sidebar ─────────────────────────────────────────────────────────────────
+
+function Sidebar({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const { width } = useWindowDimensions();
+  const translateX = useRef(new Animated.Value(width)).current;
+  const router = useRouter();
+  const { cart } = useCart();
+
+  useEffect(() => {
+    Animated.timing(translateX, {
+      toValue: visible ? 0 : width,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [visible, width]);
+
+  if (!visible) return null;
+
+  const cartCount = cart.reduce((sum, i) => sum + i.quantidade, 0);
+
+  return (
+    <Modal transparent visible={visible} onRequestClose={onClose} animationType="none">
+      <TouchableOpacity style={styles.sidebarOverlay} activeOpacity={1} onPress={onClose} />
+      <Animated.View style={[styles.sidebar, { transform: [{ translateX }] }]}>
+        <SafeAreaView style={{ flex: 1 }}>
+          <Text style={styles.sidebarTitle}>Menu</Text>
+          <TouchableOpacity style={styles.sidebarItem} onPress={onClose}>
+            <MaterialIcons name="person" size={22} color="#333" style={{ marginRight: 16 }} />
+            <Text style={styles.sidebarItemText}>Perfil</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.sidebarItem}
+            onPress={() => { onClose(); router.push('/cart'); }}
+          >
+            <MaterialIcons name="shopping-cart" size={22} color="#333" style={{ marginRight: 16 }} />
+            <Text style={styles.sidebarItemText}>Carrinho</Text>
+            {cartCount > 0 && (
+              <View style={styles.cartBadge}>
+                <Text style={styles.cartBadgeText}>{cartCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </SafeAreaView>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+// ─── Product Card ─────────────────────────────────────────────────────────────
+
+function ProductCard({ product }: { product: Produto }) {
+  const router = useRouter();
+
+  return (
+    <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={() => router.push(`/product/${product.id}`)}>
+      <View style={styles.cardInfo}>
+        <Text style={styles.cardName}>{product.nome}</Text>
+        <Text style={styles.cardPrice}>
+          R$ {product.preco.toFixed(2).replace('.', ',')}
+        </Text>
+      </View>
+      {product.imagem_url ? (
+        <Image source={{ uri: product.imagem_url }} style={styles.cardImage} />
+      ) : (
+        <View style={styles.cardImagePlaceholder} />
+      )}
+    </TouchableOpacity>
+  );
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const [products, setProducts] = useState<Produto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [activeCategory, setActiveCategory] = useState<Categoria>('PRATO_PRINCIPAL');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sectionListRef = useRef<SectionList>(null);
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  // Category chips auto-scroll
+  const categoryScrollRef = useRef<ScrollView>(null);
+  const chipLayouts = useRef<Record<string, { x: number; width: number }>>({});
+  const categoryScrollViewWidth = useRef(0);
+  const categoryScrollOffset = useRef(0);
+
+  useEffect(() => {
+    api.products.getAll()
+      .then(data => setProducts(data.products ?? []))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const scrollChipsToShow = (cat: Categoria) => {
+    const layout = chipLayouts.current[cat];
+    if (!layout || !categoryScrollRef.current) return;
+    const visStart = categoryScrollOffset.current;
+    const visEnd = visStart + categoryScrollViewWidth.current;
+    if (layout.x < visStart) {
+      categoryScrollRef.current.scrollTo({ x: layout.x - 16, animated: true });
+    } else if (layout.x + layout.width > visEnd) {
+      categoryScrollRef.current.scrollTo({
+        x: layout.x + layout.width - categoryScrollViewWidth.current + 16,
+        animated: true,
+      });
+    }
+  };
+
+  const filtered = search.trim()
+    ? products.filter(p =>
+        p.nome.toLowerCase().includes(search.toLowerCase()) ||
+        p.descricao.toLowerCase().includes(search.toLowerCase())
+      )
+    : products;
+
+  const sections = CATEGORIAS
+    .map(c => ({
+      key: c.key,
+      title: c.sectionLabel,
+      data: filtered.filter(p => p.categoria === c.key),
+    }))
+    .filter(s => s.data.length > 0);
+
+  const handleCategoryPress = (cat: Categoria) => {
+    setActiveCategory(cat);
+    const idx = sections.findIndex(s => s.key === cat);
+    if (idx !== -1) {
+      sectionListRef.current?.scrollToLocation({ sectionIndex: idx, itemIndex: 0, animated: true });
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <SafeAreaView style={styles.topSafeArea}>
+        <Sidebar visible={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      {/* Search bar */}
+      <View style={styles.searchRow}>
+        <View style={styles.searchBox}>
+          <MaterialIcons name="search" size={18} color="#999" style={{ marginRight: 6 }} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Pesquisa com IA"
+            placeholderTextColor="#999"
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+        <TouchableOpacity style={styles.menuButton} onPress={() => setSidebarOpen(true)}>
+          <MaterialIcons name="menu" size={22} color="#333" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Category chips */}
+      <ScrollView
+        ref={categoryScrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.categoryScroll}
+        contentContainerStyle={styles.categoryContent}
+        onLayout={e => { categoryScrollViewWidth.current = e.nativeEvent.layout.width; }}
+        onScroll={e => { categoryScrollOffset.current = e.nativeEvent.contentOffset.x; }}
+        scrollEventThrottle={16}
+      >
+        {CATEGORIAS.map(c => (
+          <TouchableOpacity
+            key={c.key}
+            onPress={() => handleCategoryPress(c.key)}
+            style={styles.categoryChip}
+            onLayout={e => {
+              chipLayouts.current[c.key] = { x: e.nativeEvent.layout.x, width: e.nativeEvent.layout.width };
+            }}
+          >
+            <Text style={[styles.categoryLabel, activeCategory === c.key && styles.categoryLabelActive]}>
+              {c.label}
+            </Text>
+            {activeCategory === c.key && <View style={styles.categoryUnderline} />}
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      </SafeAreaView>
+
+      {/* Product list */}
+      {loading ? (
+        <ActivityIndicator style={{ marginTop: 40 }} size="large" color={ACCENT_COLOR} />
+      ) : (
+        <SectionList
+          ref={sectionListRef}
+          sections={sections}
+          keyExtractor={item => String(item.id)}
+          renderItem={({ item }) => <ProductCard product={item} />}
+          renderSectionHeader={({ section }) => (
+            <Text style={styles.sectionHeader}>{section.title}</Text>
+          )}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          contentContainerStyle={{ paddingBottom: 32 }}
+          stickySectionHeadersEnabled={false}
+          onViewableItemsChanged={({ viewableItems }) => {
+            const first = viewableItems.find(v => v.section);
+            if (first?.section) {
+              const cat = (first.section as any).key as Categoria;
+              setActiveCategory(cat);
+              scrollChipsToShow(cat);
+            }
+          }}
+          viewabilityConfig={{ itemVisiblePercentThreshold: 50 }}
+        />
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
+  container: { flex: 1, backgroundColor: '#fff' },
+  topSafeArea: { backgroundColor: '#fff' },
+
+  // Search
+  searchRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
+  searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F5F5', borderRadius: 8, paddingHorizontal: 10, height: 40 },
+
+  searchInput: { flex: 1, fontSize: 14, color: '#333', height: '100%' },
+  menuButton: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center' },
+
+
+  // Categories
+  categoryScroll: { borderBottomWidth: 1, borderBottomColor: '#eee' },
+  categoryContent: { paddingHorizontal: 16, gap: 8 },
+  categoryChip: { paddingHorizontal: 4, paddingBottom: 6, marginRight: 16, alignItems: 'center' },
+  categoryLabel: { fontSize: 14, color: '#888', paddingVertical: 6 },
+  categoryLabelActive: { color: ACCENT_COLOR, fontWeight: '600' },
+  categoryUnderline: { height: 2, width: '100%', backgroundColor: ACCENT_COLOR, borderRadius: 2 },
+
+  // Section header
+  sectionHeader: { fontSize: 18, fontWeight: '700', color: '#111', paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8, backgroundColor: '#fff' },
+
+  // Card
+  card: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
+  cardInfo: { flex: 1, marginRight: 12 },
+  cardName: { fontSize: 15, fontWeight: '600', color: '#111', marginBottom: 6 },
+  cardPrice: { fontSize: 15, fontWeight: '700', color: PRICE_COLOR },
+  cardImage: { width: 80, height: 80, borderRadius: 8, backgroundColor: '#eee' },
+  cardImagePlaceholder: { width: 80, height: 80, borderRadius: 8, backgroundColor: '#E0E0E0' },
+
+  // Separator
+  separator: { height: 1, backgroundColor: '#F0F0F0', marginHorizontal: 16 },
+
+  // Sidebar
+  sidebarOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)' },
+  sidebar: { position: 'absolute', right: 0, top: 0, bottom: 0, width: '70%', backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: -2, height: 0 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 10, padding: 20 },
+  sidebarTitle: { fontSize: 22, fontWeight: '700', color: '#111', marginBottom: 32, marginTop: 16 },
+  sidebarItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  sidebarItemText: { fontSize: 16, color: '#333' },
+  cartBadge: { marginLeft: 'auto', backgroundColor: ACCENT_COLOR, borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  cartBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
 });

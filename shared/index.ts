@@ -1,3 +1,5 @@
+import {z} from "zod";
+
 // ─── Usuário ────────────────────────────────────────────────────────────────
 
 export interface Usuario {
@@ -8,21 +10,32 @@ export interface Usuario {
     /** Texto gerado e atualizado pela IA — "memória" comportamental do cliente */
     etiqueta?: string;
 }
+export const UsuarioSchema = z.object({
+    id: z.string(),
+    nome: z.string(),
+    email: z.string().email(),
+    idade: z.number().int().positive(),
+    etiqueta: z.string().optional(),
+});
 
 // ─── Produto ────────────────────────────────────────────────────────────────
-    
-export type Restricao =
-    | 'VEGETARIANO'       // Sem carne
-    | 'VEGANO'            // Sem produtos de origem animal
-    | 'SEM_ACUCAR'        // Diet
-    | 'SEM_SODIO'         // Low Carb / Hipertensos
-    | 'CETOGENICO'        // Dieta cetogênica (baixo carboidrato)
-    | 'SEM_GLUTEN'        // Celíacos / Intolerantes
-    | 'SEM_LACTOSE'       // Derivados do leite
-    | 'APLV'              // Alergia à Proteína do Leite de Vaca
-    | 'SEM_OLEAGINOSAS'   // Amendoim, nozes, castanhas
-    | 'SEM_FRUTOS_DO_MAR' // Camarão, lagosta, etc.
-    | 'OUTROS';
+
+export const RestricaoArray = [
+    'VEGETARIANO',
+    'VEGANO',
+    'SEM_ACUCAR',
+    'SEM_SODIO',
+    'CETOGENICO',
+    'SEM_GLUTEN',
+    'SEM_LACTOSE',
+    'APLV',
+    'SEM_OLEAGINOSAS',
+    'SEM_FRUTOS_DO_MAR',
+    'OUTROS',
+] as const;
+
+export const RestricaoSchema = z.enum(RestricaoArray);
+export type Restricao = typeof RestricaoArray[number];
 
 export type Categoria =
     | 'PRATO_PRINCIPAL'
@@ -30,6 +43,14 @@ export type Categoria =
     | 'BEBIDAS'
     | 'SOBREMESA'
     | 'OUTROS';
+
+export const CategoriaSchema = z.enum([
+    'PRATO_PRINCIPAL',
+    'ACOMPANHAMENTOS',
+    'BEBIDAS',
+    'SOBREMESA',
+    'OUTROS',
+]);
 
 export interface Produto {
     id: number;
@@ -43,6 +64,18 @@ export interface Produto {
     restricoes: Restricao[];
 }
 
+export const ProdutoSchema = z.object({
+    id: z.number().int().positive(),
+    nome: z.string(),
+    definicao: z.string(),
+    descricao: z.string(),
+    preco: z.number().positive(),
+    categoria: CategoriaSchema,
+    imagem_url: z.string().url(),
+    ingredientes: z.array(z.string()),
+    restricoes: z.array(RestricaoSchema),
+});
+
 // ─── Pedido ─────────────────────────────────────────────────────────────────
 
 export interface PedidoProduto {
@@ -50,6 +83,12 @@ export interface PedidoProduto {
     preco: number;
     quantidade: number;
 }
+
+export const PedidoProdutoSchema = z.object({
+    produto: ProdutoSchema,
+    preco: z.number().positive(),
+    quantidade: z.number().int().positive(),
+});
 
 export interface Pedido {
     id: number;
@@ -59,3 +98,12 @@ export interface Pedido {
     preco_total: number;
     criado_em: string;
 }
+
+export const PedidoSchema = z.object({
+    id: z.number().int().positive(),
+    usuarioId: z.number().int().positive(),
+    produtos: z.array(PedidoProdutoSchema),
+    horario: z.string(),
+    preco_total: z.number().positive(),
+    criado_em: z.string(),
+});

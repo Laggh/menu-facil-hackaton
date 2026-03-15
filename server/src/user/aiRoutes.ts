@@ -21,12 +21,7 @@ export default () => {
     // Rota GET para teste (simples, sem IA)
     router.get("/generate", async (req: Request, res: Response) => {
         const prompt = req.query.prompt as string || "Escreva um poema curto sobre comida";
-        const [generated, error] = await ai.generate(prompt);
-
-        if (error) {
-            res.status(500).json({ error: "Falha ao gerar conteúdo", details: error.message });
-            return;
-        }
+        const generated = await ai.generate(prompt);
 
         res.json({ generated });
     });

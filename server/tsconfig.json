@@ -5,7 +5,6 @@
     "lib": ["ES2020"],
     "types": ["node"],
     "moduleResolution": "bundler",
-    "ignoreDeprecations": "6.0",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "strict": true,

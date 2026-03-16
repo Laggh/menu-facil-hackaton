@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -6,23 +6,22 @@ import {
   TouchableOpacity,
   StyleSheet,
   Image,
-  SafeAreaView,
   Alert,
   Modal,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
-import type { Produto, PedidoProduto } from '@shared/types';
+import type { PedidoProduto } from '@shared/types';
 import { useCart } from '@/context/cart-context';
-import api from '@/lib/api';
 
 const PRICE_COLOR = '#00BFA5';
 const ACCENT_COLOR = '#6C63FF';
 
 export default function CartScreen() {
-  const { cart, updateQty, removeFromCart, updateObservacao, placeOrder, addToCart } = useCart();
-  const [suggestions, setSuggestions] = useState<Produto[]>([]);
+  const { cart, updateQty, removeFromCart, updateObservacao, placeOrder, addToCart, suggestions, loadingSuggestions } = useCart();
   const [editing, setEditing] = useState<PedidoProduto | null>(null);
   const [editObs, setEditObs] = useState('');
   const router = useRouter();
@@ -37,19 +36,16 @@ export default function CartScreen() {
     setEditing(null);
   };
 
-  useEffect(() => {
-    api.products.getAll()
-      .then(data => setSuggestions((data.products ?? []).slice(0, 2)))
-      .catch(console.error);
-  }, []);
-
   const total = cart.reduce((sum, i) => sum + i.preco * i.quantidade, 0);
 
   const handlePlaceOrder = async () => {
     try {
-      await placeOrder(1);
+      const order = await placeOrder();
       Alert.alert('Pedido realizado!', 'Seu pedido foi enviado com sucesso.');
-      router.back();
+      router.push({
+        pathname: '/order-detail',
+        params: { id: order.id },
+      });
     } catch (e: any) {
       Alert.alert('Erro', e?.message ?? 'Não foi possível realizar o pedido.');
     }
@@ -139,34 +135,45 @@ export default function CartScreen() {
         </Modal>
 
         {/* Suggestions */}
-        {suggestions.length > 0 && (
+        {cart.length > 0 && (
           <View style={styles.suggestionsSection}>
             <Text style={styles.suggestionsTitle}>Sugestões</Text>
-            {suggestions.map(p => {
-              const inCart = cart.find(i => i.produto.id === p.id);
-              return (
-                <View key={p.id} style={styles.suggestionCard}>
-                  {p.imagem_url ? (
-                    <Image source={{ uri: p.imagem_url }} style={styles.suggestionImage} />
-                  ) : (
-                    <View style={[styles.suggestionImage, { backgroundColor: '#E0E0E0' }]} />
-                  )}
-                  <View style={styles.suggestionInfo}>
-                    <Text style={styles.suggestionName} numberOfLines={1}>{p.nome}</Text>
-                    <Text style={styles.suggestionPrice}>
-                      R$ {p.preco.toFixed(2).replace('.', ',')}
-                    </Text>
-                  </View>
-                  <TouchableOpacity style={styles.suggestionAdd} onPress={() => addToCart(p)}>
-                    {inCart ? (
-                      <Text style={styles.suggestionAddText}>{inCart.quantidade}×</Text>
+            {loadingSuggestions ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={ACCENT_COLOR} />
+                <Text style={styles.loadingText}>Gerando sugestões...</Text>
+              </View>
+            ) : suggestions.length > 0 ? (
+              suggestions.map(p => {
+                const inCart = cart.find(i => i.produto.id === p.id);
+                return (
+                  <View key={p.id} style={styles.suggestionCard}>
+                    {p.imagem_url ? (
+                      <Image source={{ uri: p.imagem_url }} style={styles.suggestionImage} />
                     ) : (
-                      <MaterialIcons name="add" size={18} color="#fff" />
+                      <View style={[styles.suggestionImage, { backgroundColor: '#E0E0E0' }]} />
                     )}
-                  </TouchableOpacity>
-                </View>
-              );
-            })}
+                    <View style={styles.suggestionInfo}>
+                      <Text style={styles.suggestionName} numberOfLines={1}>{p.nome}</Text>
+                      <Text style={styles.suggestionPrice}>
+                        R$ {p.preco.toFixed(2).replace('.', ',')}
+                      </Text>
+                    </View>
+                    <TouchableOpacity style={styles.suggestionAdd} onPress={() => addToCart(p)}>
+                      {inCart ? (
+                        <Text style={styles.suggestionAddText}>{inCart.quantidade}×</Text>
+                      ) : (
+                        <MaterialIcons name="add" size={18} color="#fff" />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                );
+              })
+            ) : (
+              <View style={styles.noSuggestionsContainer}>
+                <Text style={styles.noSuggestionsText}>Nenhuma sugestão</Text>
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -240,6 +247,19 @@ const styles = StyleSheet.create({
   // Suggestions
   suggestionsSection: { paddingTop: 24, paddingHorizontal: 16 },
   suggestionsTitle: { fontSize: 18, fontWeight: '700', color: '#111', marginBottom: 16 },
+  loadingContainer: { 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    paddingVertical: 32,
+    gap: 12,
+  },
+  loadingText: { fontSize: 14, color: '#666', fontWeight: '500' },
+  noSuggestionsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+  },
+  noSuggestionsText: { fontSize: 14, color: '#999', fontWeight: '500' },
   suggestionCard: {
     flexDirection: 'row',
     alignItems: 'center',

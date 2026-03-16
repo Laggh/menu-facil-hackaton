@@ -7,9 +7,9 @@ import {
   FlatList,
   StyleSheet,
   Image,
-  SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import type { Produto } from '@shared/types';

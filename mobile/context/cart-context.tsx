@@ -1,46 +1,82 @@
-import React, { createContext, useContext, useState } from 'react';
-import type { Produto, PedidoProduto } from '@shared/types';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import type { Produto, PedidoProduto, Pedido } from '@shared/types';
 import api from '@/lib/api';
 
 interface CartContextValue {
   cart: PedidoProduto[];
+  suggestions: Produto[];
+  loadingSuggestions: boolean;
   addToCart: (produto: Produto, observacao?: string) => void;
   removeFromCart: (produtoId: number) => void;
   updateQty: (produtoId: number, qty: number) => void;
   updateObservacao: (produtoId: number, observacao: string) => void;
   clearCart: () => void;
-  placeOrder: (usuarioId: number) => Promise<void>;
+  placeOrder: () => Promise<Pedido>;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<PedidoProduto[]>([]);
+  const [suggestions, setSuggestions] = useState<Produto[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+
+  // Função para buscar sugestões de forma assíncrona
+  const fetchSuggestions = async (currentCart: PedidoProduto[]) => {
+    if (currentCart.length === 0) {
+      setSuggestions([]);
+      return;
+    }
+
+    try {
+      setLoadingSuggestions(true);
+      const result = await api.products.getSuggestions(currentCart);
+      setSuggestions(result.sugestoes || []);
+    } catch (error) {
+      console.error('Erro ao buscar sugestões:', error);
+      setSuggestions([]);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  // useEffect para buscar sugestões sempre que o carrinho mudar
+  useEffect(() => {
+    fetchSuggestions(cart);
+  }, [cart]);
 
   const addToCart = (produto: Produto, observacao?: string) => {
     setCart(prev => {
       const existing = prev.find(item => item.produto.id === produto.id);
+      let newCart;
+      
       if (existing) {
-        return prev.map(item =>
+        newCart = prev.map(item =>
           item.produto.id === produto.id
             ? { ...item, quantidade: item.quantidade + 1 }
             : item
         );
-      }
-      return [
-        ...prev,
-        {
-          produto,
-          preco: produto.preco,
-          quantidade: 1,
+      } else {
+        newCart = [
+          ...prev,
+          {
+            produto,
+            preco: produto.preco,
+            quantidade: 1,
             observacao: observacao || undefined,
-        },
-      ];
+          },
+        ];
+      }
+
+      return newCart;
     });
   };
 
   const removeFromCart = (produtoId: number) => {
-    setCart(prev => prev.filter(item => item.produto.id !== produtoId));
+    setCart(prev => {
+      const newCart = prev.filter(item => item.produto.id !== produtoId);
+      return newCart;
+    });
   };
 
   const updateQty = (produtoId: number, qty: number) => {
@@ -48,11 +84,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       removeFromCart(produtoId);
       return;
     }
-    setCart(prev =>
-      prev.map(item =>
+    setCart(prev => {
+      const newCart = prev.map(item =>
         item.produto.id === produtoId ? { ...item, quantidade: qty } : item
-      )
-    );
+      );
+      
+      return newCart;
+    });
   };
 
   const updateObservacao = (produtoId: number, observacao: string) => {
@@ -63,16 +101,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
-  const clearCart = () => setCart([]);
+  const clearCart = () => {
+    setCart([]);
+    setSuggestions([]);
+  };
 
-  const placeOrder = async (usuarioId: number) => {
+  const placeOrder = async () => {
     if (cart.length === 0) throw new Error('Carrinho vazio');
-    await api.orders.create(usuarioId, cart);
+    const result = await api.orders.create(cart);
     clearCart();
+    return result.order;
   };
 
   return (
-    <CartContext.Provider value={{ cart, addToCart, removeFromCart, updateQty, updateObservacao, clearCart, placeOrder }}>
+    <CartContext.Provider value={{ cart, suggestions, loadingSuggestions, addToCart, removeFromCart, updateQty, updateObservacao, clearCart, placeOrder }}>
       {children}
     </CartContext.Provider>
   );

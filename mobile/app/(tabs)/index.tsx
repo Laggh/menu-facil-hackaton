@@ -8,17 +8,18 @@ import {
   ScrollView,
   StyleSheet,
   Image,
-  SafeAreaView,
   Modal,
   Animated,
   useWindowDimensions,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import type { Produto, Categoria } from '@shared/types';
 import api from '@/lib/api';
 import { useCart } from '@/context/cart-context';
+import { useUser } from '@/context/user-context';
 
 const PRICE_COLOR = '#00BFA5';
 const ACCENT_COLOR = '#6C63FF';
@@ -38,6 +39,8 @@ function Sidebar({ visible, onClose }: { visible: boolean; onClose: () => void }
   const translateX = useRef(new Animated.Value(width)).current;
   const router = useRouter();
   const { cart } = useCart();
+  const { user } = useUser();
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
 
   useEffect(() => {
     Animated.timing(translateX, {
@@ -47,9 +50,33 @@ function Sidebar({ visible, onClose }: { visible: boolean; onClose: () => void }
     }).start();
   }, [visible, width]);
 
+  useEffect(() => {
+    if (visible && user) {
+      loadPendingOrders();
+    }
+  }, [visible, user]);
+
+  const loadPendingOrders = async () => {
+    try {
+      const result = await import('@/lib/api').then(m => m.default.orders.getByUser());
+      setPendingOrdersCount(result.pendentes?.length || 0);
+    } catch (error) {
+      console.error('Erro ao carregar pedidos:', error);
+    }
+  };
+
   if (!visible) return null;
 
   const cartCount = cart.reduce((sum, i) => sum + i.quantidade, 0);
+
+  const handleProfilePress = () => {
+    onClose();
+    if (user) {
+      router.push('/auth/profile');
+    } else {
+      router.push('/auth/login');
+    }
+  };
 
   return (
     <Modal transparent visible={visible} onRequestClose={onClose} animationType="none">
@@ -57,9 +84,11 @@ function Sidebar({ visible, onClose }: { visible: boolean; onClose: () => void }
       <Animated.View style={[styles.sidebar, { transform: [{ translateX }] }]}>
         <SafeAreaView style={{ flex: 1 }}>
           <Text style={styles.sidebarTitle}>Menu</Text>
-          <TouchableOpacity style={styles.sidebarItem} onPress={onClose}>
+          <TouchableOpacity style={styles.sidebarItem} onPress={handleProfilePress}>
             <MaterialIcons name="person" size={22} color="#333" style={{ marginRight: 16 }} />
-            <Text style={styles.sidebarItemText}>Perfil</Text>
+            <Text style={styles.sidebarItemText}>
+              {user ? `Perfil (${user.nome})` : 'Fazer Login'}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.sidebarItem}
@@ -70,6 +99,18 @@ function Sidebar({ visible, onClose }: { visible: boolean; onClose: () => void }
             {cartCount > 0 && (
               <View style={styles.cartBadge}>
                 <Text style={styles.cartBadgeText}>{cartCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.sidebarItem}
+            onPress={() => { onClose(); router.push('/orders'); }}
+          >
+            <MaterialIcons name="receipt-long" size={22} color="#333" style={{ marginRight: 16 }} />
+            <Text style={styles.sidebarItemText}>Meus Pedidos</Text>
+            {pendingOrdersCount > 0 && (
+              <View style={styles.pendingBadge}>
+                <Text style={styles.pendingBadgeText}>{pendingOrdersCount}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -287,4 +328,6 @@ const styles = StyleSheet.create({
   sidebarItemText: { fontSize: 16, color: '#333' },
   cartBadge: { marginLeft: 'auto', backgroundColor: ACCENT_COLOR, borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   cartBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  pendingBadge: { marginLeft: 'auto', backgroundColor: '#FF9800', borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  pendingBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
 });

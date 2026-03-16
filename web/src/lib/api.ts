@@ -1,4 +1,4 @@
-import type { Produto, Restricao } from '@shared/types';
+import type { Produto, Restricao, GeminiLog, Usuario, Pedido, StatusPedido } from '@shared/types';
 
 const BASE_URL = 'http://localhost:3000';
 
@@ -81,7 +81,27 @@ const api = {
 
   logs: {
     /** GET /api/log — retorna os logs do Gemini */
-    getAll: (): Promise<{ logs: any[] }> => request('/api/log'),
+    getAll: (): Promise<{ logs: (GeminiLog | { raw: string })[] }> => 
+      request(`/api/log?_t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } }),
+  },
+
+  users: {
+    /** GET /api/user — retorna todos os usuários */
+    getAll: (): Promise<{ users: Usuario[] }> => request('/api/user'),
+  },
+
+  orders: {
+    /** GET /api/orders — retorna todos os pedidos */
+    getAll: (): Promise<{ orders: Pedido[], pendentes: Pedido[], completos: Pedido[], cancelados: Pedido[] }> => 
+      request('/api/orders'),
+
+    /** PUT /api/orders/:id/status — atualiza o status de um pedido */
+    updateStatus: (id: string, status: StatusPedido): Promise<{ order: Pedido }> =>
+      request(`/api/orders/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      }),
   },
 
   /** POST /api/upload — faz upload de uma imagem para o UploadThing */

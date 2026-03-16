@@ -6,32 +6,20 @@ import {
   TouchableOpacity,
   StyleSheet,
   Image,
-  SafeAreaView,
   ActivityIndicator,
   TextInput,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { Produto } from '@shared/types';
 import api from '@/lib/api';
 import { useCart } from '@/context/cart-context';
+import { RestricaoModal } from '@/components/RestricaoModal';
+import { RESTRICAO_INFO, type RestricaoKey, type RestricaoInfo } from '@/constants/restricoes';
 
 const PRICE_COLOR = '#00BFA5';
 const ACCENT_COLOR = '#6C63FF';
-
-const RESTRICAO_LABELS: Record<string, string> = {
-  VEGETARIANO: '🌱 Vegetariano',
-  VEGANO: '🌿 Vegano',
-  SEM_ACUCAR: '🚫 Sem Açúcar',
-  SEM_SODIO: '🧂 Sem Sódio',
-  CETOGENICO: '🥑 Cetogênico',
-  SEM_GLUTEN: '🌾 Sem Glúten',
-  SEM_LACTOSE: '🥛 Sem Lactose',
-  APLV: '🐄 APLV',
-  SEM_OLEAGINOSAS: '🥜 Sem Oleaginosas',
-  SEM_FRUTOS_DO_MAR: '🦐 Sem Frutos do Mar',
-  OUTROS: 'Outros',
-};
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -41,6 +29,8 @@ export default function ProductDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [qty, setQty] = useState(1);
   const [observacao, setObservacao] = useState('');
+  const [selectedRestricao, setSelectedRestricao] = useState<RestricaoInfo | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     api.products.getById(Number(id))
@@ -54,7 +44,15 @@ export default function ProductDetailScreen() {
     for (let i = 0; i < qty; i++) {
       addToCart(product, observacao || undefined);
     }
-    router.back();
+    router.push('/(tabs)/');
+  };
+
+  const handleRestricaoPress = (restricaoKey: string) => {
+    const info = RESTRICAO_INFO[restricaoKey as RestricaoKey];
+    if (info) {
+      setSelectedRestricao(info);
+      setModalVisible(true);
+    }
   };
 
   if (loading) {
@@ -80,6 +78,11 @@ export default function ProductDetailScreen() {
 
   return (
     <View style={styles.container}>
+      <RestricaoModal
+        visible={modalVisible}
+        restricao={selectedRestricao}
+        onClose={() => setModalVisible(false)}
+      />
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Hero image */}
         {product.imagem_url ? (
@@ -122,11 +125,17 @@ export default function ProductDetailScreen() {
               <Text style={styles.sectionTitle}>Restrições alimentares</Text>
               <View style={styles.tagRow}>
                 {product.restricoes.map((r, i) => (
-                  <View key={i} style={[styles.tag, styles.restricaoTag]}>
+                  <TouchableOpacity
+                    key={i}
+                    style={[styles.tag, styles.restricaoTag]}
+                    onPress={() => handleRestricaoPress(r)}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialIcons name="warning" size={14} color="#D32F2F" style={{ marginRight: 4 }} />
                     <Text style={[styles.tagText, styles.restricaoTagText]}>
-                      {RESTRICAO_LABELS[r] ?? r}
+                      {RESTRICAO_INFO[r as RestricaoKey]?.label ?? r.replace(/_/g, ' ')}
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             </View>
@@ -208,10 +217,10 @@ const styles = StyleSheet.create({
   section: { marginBottom: 20 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: '#111', marginBottom: 10 },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tag: { backgroundColor: '#F5F5F5', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  tag: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F5F5', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
   tagText: { fontSize: 13, color: '#555' },
-  restricaoTag: { backgroundColor: '#E8F5E9' },
-  restricaoTagText: { color: '#2E7D32' },
+  restricaoTag: { backgroundColor: '#FFEBEE' },
+  restricaoTagText: { color: '#D32F2F' },
 
   footer: {
     position: 'absolute',

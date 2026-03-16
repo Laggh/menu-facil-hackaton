@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Produto, Categoria, Restricao } from '@shared/types';
-import { RestricaoArray } from '@shared/types';
+import { RestricaoArray, RESTRICAO_INFO } from '@shared/types';
 import api from '../lib/api';
 
 const CATEGORIAS: { value: Categoria; label: string }[] = [
@@ -10,20 +10,6 @@ const CATEGORIAS: { value: Categoria; label: string }[] = [
   { value: 'SOBREMESA', label: 'Sobremesa' },
   { value: 'OUTROS', label: 'Outros' },
 ];
-
-const RESTRICAO_LABELS: Record<Restricao, string> = {
-  VEGETARIANO: 'Vegetariano',
-  VEGANO: 'Vegano',
-  SEM_ACUCAR: 'Sem Açúcar',
-  SEM_SODIO: 'Sem Sódio',
-  CETOGENICO: 'Cetogênico',
-  SEM_GLUTEN: 'Sem Glúten',
-  SEM_LACTOSE: 'Sem Lactose',
-  APLV: 'APLV',
-  SEM_OLEAGINOSAS: 'Sem Oleaginosas',
-  SEM_FRUTOS_DO_MAR: 'Sem Frutos do Mar',
-  OUTROS: 'Outros',
-};
 
 type FormData = Omit<Produto, 'id'>;
 
@@ -300,14 +286,24 @@ export function ProductModal({ product, onClose, onSave }: Props) {
                   Definição{' '}
                   <span className="text-gray-400 font-medium">(usada para geração de descrição pela IA)</span>
                 </span>
-                <button
-                  type="button"
-                  onClick={handleGenerateAI}
-                  disabled={aiLoading}
-                  className="flex items-center gap-1.5 text-xs font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  <span className="text-sm">✨</span> Gerar com IA
-                </button>
+                <div className="relative group flex items-center">
+                  <button
+                    type="button"
+                    onClick={handleGenerateAI}
+                    disabled={aiLoading}
+                    className="flex items-center gap-1.5 text-xs font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                    </svg>
+                    Gerar com IA
+                  </button>
+                  <div className="absolute right-0 bottom-full mb-2 w-48 p-2.5 bg-gray-900 text-white text-xs text-center rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none shadow-xl">
+                    <span className="font-semibold block mb-1">Atenção</span>
+                    A geração por IA pode demorar de 5 até 15 segundos.
+                    <div className="absolute top-full right-8 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                  </div>
+                </div>
               </label>
               <textarea
                 rows={2}
@@ -371,9 +367,9 @@ export function ProductModal({ product, onClose, onSave }: Props) {
                   return (
                     <label
                       key={r}
-                      className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                        isChecked 
-                          ? 'border-orange-500 bg-orange-50 shadow-sm' 
+                      className={`group relative flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                        isChecked
+                          ? 'border-orange-500 bg-orange-50 shadow-sm'
                           : 'border-gray-200 bg-white hover:bg-gray-50'
                       }`}
                     >
@@ -393,8 +389,17 @@ export function ProductModal({ product, onClose, onSave }: Props) {
                         className="hidden"
                       />
                       <span className={`text-sm font-medium ${isChecked ? 'text-orange-900' : 'text-gray-700'}`}>
-                        {RESTRICAO_LABELS[r]}
+                        {RESTRICAO_INFO[r].label}
                       </span>
+
+                      {/* Tooltip de Exemplos */}
+                      {RESTRICAO_INFO[r].exemplos && (
+                        <div className="absolute flex flex-col items-center bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-2.5 bg-gray-900 text-white text-xs text-center rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none shadow-xl">
+                          <span className="font-semibold mb-1 border-b border-gray-700 pb-1 w-full">{RESTRICAO_INFO[r].label}</span>
+                          <span className="text-gray-300 leading-tight">{RESTRICAO_INFO[r].exemplos}</span>
+                          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                        </div>
+                      )}
                     </label>
                   );
                 })}

@@ -1,9 +1,32 @@
-import type { Produto, Restricao, PedidoProduto, Pedido } from '@shared/types';
+import type { Produto, Restricao, PedidoProduto, Pedido, Usuario } from '@shared/types';
 
 const BASE_URL = 'http://localhost:3000';
 
+// Armazena o userID localmente (será melhorado com AsyncStorage)
+let currentUserId: string | null = null;
+
+export const setUserId = (id: string | null) => {
+  currentUserId = id;
+};
+
+export const getUserId = () => currentUserId;
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, options);
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (currentUserId) {
+    headers['x-user-id'] = currentUserId;
+  }
+
+  const res = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      ...headers,
+      ...(options?.headers as Record<string, string>),
+    },
+  });
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
@@ -57,6 +80,13 @@ const api = {
     /** GET /api/products/busca — busca semântica inteligente (com fallback) */
     search: (query: string): Promise<{ products: Produto[] }> =>
       request(`/api/products/busca?q=${encodeURIComponent(query)}`),
+
+    /** POST /api/products/suggest — gera sugestões com base no carrinho */
+    getSuggestions: (carrinho: PedidoProduto[]): Promise<{ sugestoes: Produto[] }> =>
+      request('/api/products/suggest', {
+        method: 'POST',
+        body: JSON.stringify({ carrinho }),
+      }),
   },
 
   ai: {
@@ -74,16 +104,46 @@ const api = {
     getAll: (): Promise<{ orders: Pedido[] }> =>
       request('/api/orders'),
 
+    /** GET /api/orders/user — lista pedidos do usuário autenticado */
+    getByUser: (): Promise<{ orders: Pedido[]; pendentes: Pedido[]; completos: Pedido[]; cancelados: Pedido[] }> =>
+      request('/api/orders/user'),
+
     /** GET /api/orders/:id — busca pedido por ID */
-    getById: (id: number): Promise<{ order: Pedido }> =>
+    getById: (id: string): Promise<{ order: Pedido }> =>
       request(`/api/orders/${id}`),
 
     /** POST /api/orders — cria um novo pedido */
-    create: (usuarioId: number, produtos: PedidoProduto[]): Promise<{ order: Pedido }> =>
+    create: (produtos: PedidoProduto[]): Promise<{ order: Pedido }> =>
       request('/api/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usuarioId, produtos }),
+        body: JSON.stringify({ produtos }),
+      }),
+  },
+
+  user: {
+    /** POST /api/user/register — registrar novo usuário */
+    register: (nome: string, email: string, idade: number): Promise<{ user: Usuario }> =>
+      request('/api/user/register', {
+        method: 'POST',
+        body: JSON.stringify({ nome, email, idade }),
+      }),
+
+    /** POST /api/user/login — fazer login */
+    login: (email: string): Promise<{ user: Usuario; token: string }> =>
+      request('/api/user/login', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      }),
+
+    /** GET /api/user/me — obter dados do usuário atual */
+    getMe: (): Promise<{ user: Usuario }> =>
+      request('/api/user/me'),
+
+    /** PUT /api/user/edit — atualizar dados do usuário */
+    update: (data: Partial<Omit<Usuario, 'id'>>): Promise<{ user: Usuario }> =>
+      request('/api/user/edit', {
+        method: 'PUT',
+        body: JSON.stringify(data),
       }),
   },
 };

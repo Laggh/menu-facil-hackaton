@@ -1,17 +1,94 @@
 import express from "express";
 import type { Request, Response } from "express";
 import { z } from "zod";
-import { PedidoProdutoSchema } from "@shared/types";
+import { PedidoProdutoSchema, Pedido } from "@shared/types";
 import db from "../dbHelpers";
 
 export default () => {
     const router = express.Router();
 
-    // GET /api/orders — lista todos os pedidos
+    // POST /api/orders — cria um novo pedido
+    router.post("/", async (req: Request, res: Response) => {
+        const userId = req.headers["x-user-id"] as string | undefined;
+        
+        if (!userId) {
+            res.status(401).json({ error: "x-user-id header é obrigatório" });
+            return;
+        }
+
+        const schema = z.object({
+            produtos: z.array(PedidoProdutoSchema),
+            horario: z.string().optional(),
+        });
+
+        const parseResult = schema.safeParse(req.body);
+        if (!parseResult.success) {
+            res.status(400).json({ error: "Dados inválidos", details: parseResult.error });
+            return;
+        }
+
+        const { produtos, horario } = parseResult.data;
+        const preco_total = produtos.reduce((sum, p) => sum + p.preco * p.quantidade, 0);
+
+        try {
+            const order = await db.order.create({
+                usuarioId: userId,
+                produtos,
+                horario: horario ?? new Date().toTimeString().slice(0, 5),
+                preco_total,
+            });
+            res.status(201).json({ order });
+        } catch (error) {
+            console.error("Erro ao criar pedido:", error);
+            res.status(500).json({ error: "Erro ao criar pedido" });
+        }
+    });
+
+    // GET /api/orders/user — lista pedidos do usuário autenticado
+    router.get("/user", async (req: Request, res: Response) => {
+        const userId = req.headers["x-user-id"] as string | undefined;
+        
+        if (!userId) {
+            res.status(401).json({ error: "x-user-id header é obrigatório" });
+            return;
+        }
+
+        try {
+            const orders = await db.order.getByUserId(userId);
+            
+            // Separar pendentes e completos
+            const pendentes = orders.filter(o => o.status === 'PENDENTE');
+            const completos = orders.filter(o => o.status === 'COMPLETO');
+            const cancelados = orders.filter(o => o.status === 'CANCELADO');
+            
+            res.json({ 
+                orders,
+                pendentes,
+                completos,
+                cancelados
+            });
+        } catch (error) {
+            console.error("Erro ao buscar pedidos do usuário:", error);
+            res.status(500).json({ error: "Erro ao buscar pedidos" });
+        }
+    });
+
+    // GET /api/orders — lista todos os pedidos (admin)
     router.get("/", async (req: Request, res: Response) => {
         try {
             const orders = await db.order.getAll();
-            res.json({ orders });
+            
+            // Separar por status para facilitar visualização
+            const pendentes = orders.filter(o => o.status === 'PENDENTE');
+            const completos = orders.filter(o => o.status === 'COMPLETO');
+            const cancelados = orders.filter(o => o.status === 'CANCELADO');
+            
+            res.json({ 
+                orders,
+                pendentes,
+                completos,
+                cancelados
+            });
         } catch (error) {
             console.error("Erro ao buscar pedidos:", error);
             res.status(500).json({ error: "Erro ao buscar pedidos" });
@@ -20,11 +97,8 @@ export default () => {
 
     // GET /api/orders/:id — busca pedido por ID
     router.get("/:id", async (req: Request, res: Response) => {
-        const id = parseInt(req.params.id);
-        if (isNaN(id)) {
-            res.status(400).json({ error: "ID inválido" });
-            return;
-        }
+        const { id } = req.params;
+        
         try {
             const order = await db.order.getById(id);
             if (!order) {
@@ -38,31 +112,27 @@ export default () => {
         }
     });
 
-    // POST /api/orders — cria um novo pedido
-    router.post("/", async (req: Request, res: Response) => {
-        const schema = z.object({
-            usuarioId: z.number().int().positive(),
-            produtos: z.array(PedidoProdutoSchema),
-            horario: z.string().optional(),
-        });
-        const parseResult = schema.safeParse(req.body);
-        if (!parseResult.success) {
-            res.status(400).json({ error: "Dados inválidos", details: parseResult.error });
+    // PUT /api/orders/:id/status — atualiza status do pedido (admin)
+    router.put("/:id/status", async (req: Request, res: Response) => {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        // Validar status
+        if (!['PENDENTE', 'COMPLETO', 'CANCELADO'].includes(status)) {
+            res.status(400).json({ error: "Status inválido. Use: PENDENTE, COMPLETO ou CANCELADO" });
             return;
         }
-        const { usuarioId, produtos, horario } = parseResult.data;
-        const preco_total = produtos.reduce((sum, p) => sum + p.preco * p.quantidade, 0);
+
         try {
-            const order = await db.order.create({
-                usuarioId,
-                produtos,
-                horario: horario ?? new Date().toTimeString().slice(0, 5),
-                preco_total,
-            });
-            res.status(201).json({ order });
+            const updatedOrder = await db.order.updateStatus(id, status);
+            if (!updatedOrder) {
+                res.status(404).json({ error: "Pedido não encontrado" });
+                return;
+            }
+            res.json({ order: updatedOrder });
         } catch (error) {
-            console.error("Erro ao criar pedido:", error);
-            res.status(500).json({ error: "Erro ao criar pedido" });
+            console.error("Erro ao atualizar status do pedido:", error);
+            res.status(500).json({ error: "Erro ao atualizar status do pedido" });
         }
     });
 

@@ -2,7 +2,7 @@ import express from "express";
 import type { Request, Response } from "express";
 import { z } from "zod";
 
-import { Produto, ProdutoSchema, Restricao, RestricaoArray, Usuario } from "@shared/types";
+import { Produto, ProdutoSchema, Restricao, RestricaoArray, Usuario, PedidoProduto, PedidoProdutoSchema } from "@shared/types";
 
 import db from "../dbHelpers";
 import ai from "../aiHelpers";
@@ -99,42 +99,60 @@ export default () => {
     });
 
     router.post("/search", async (req: Request, res: Response) => {
-        const { query, usuario } = req.body;
+        const { query } = req.body;
+        const userId = req.headers["x-user-id"] as string | undefined;
         
         if (!query || typeof query !== 'string') {
             res.status(400).json({ error: "O campo 'query' é obrigatório e deve ser uma string" });
             return;
         }
 
-        if (!usuario) {
-            res.status(400).json({ error: "O campo 'usuario' é obrigatório" });
-            return;
-        }
-
         try {
             // Buscam todos os produtos disponíveis
-            const produtos = await db.get("products") as Produto[] | null;
+            const produtos = (await db.get("products")) as Produto[] | null;
             
             if (!produtos || produtos.length === 0) {
-                res.json({ produtos: [] });
+                res.json({ produtos: [], error: null });
                 return;
             }
 
-            // Tentam buscar com IA
-            try {
-                const produtosEncontrados = await ai.searchProductsWithAI(query, usuario, produtos);
-                
-                if (produtosEncontrados && produtosEncontrados.length > 0) {
-                    res.json({ produtos: produtosEncontrados });
-                    return;
+            let usuario: Usuario;
+
+            // Se tiver ID, busca o usuário real
+            if (userId) {
+                const usuarioReal = await db.user.getById(userId);
+                if (usuarioReal) {
+                    usuario = usuarioReal;
+                } else {
+                    // Se não encontrar, usa mock
+                    usuario = {
+                        id: "anonymous",
+                        nome: "usuario sem login",
+                        email: "anonymous@user.local",
+                        idade: 18
+                    };
                 }
-            } catch (aiError) {
-                console.warn("Erro ao buscar com IA, usando busca simples:", aiError);
+            } else {
+                // Sem autenticação, usa mock
+                usuario = {
+                    id: "anonymous",
+                    nome: "usuario sem login",
+                    email: "anonymous@user.local",
+                    idade: 18
+                };
             }
 
-            // Fallback para busca simples (sem IA)
+            // Tentar buscar com IA
+            const resultadoIA = await ai.searchProductsWithAI(query, usuario, produtos);
+            
+            if (resultadoIA.data && resultadoIA.data.length > 0) {
+                res.json({ produtos: resultadoIA.data, error: resultadoIA.error || null });
+                return;
+            }
+
+            // Se a IA retornar vazio ou erro, usar fallback de busca simples
             const produtosSimples = ai.searchProductsSimple(query, produtos);
-            res.json({ produtos: produtosSimples });
+            res.json({ produtos: produtosSimples, error: resultadoIA.error || null });
 
         } catch (error: any) {
             console.error("Erro ao buscar produtos:", error);
@@ -148,8 +166,10 @@ export default () => {
 
     // GET /busca — Busca semântica inteligente (com fallback)
     // Query params: ?q=termo
+    // Header: x-user-id (opcional)
     router.get("/busca", async (req: Request, res: Response) => {
         const q = req.query.q;
+        const userId = req.headers["x-user-id"] as string | undefined;
         
         if (!q || typeof q !== 'string') {
             res.status(400).json({ error: "O parâmetro 'q' é obrigatório e deve ser uma string" });
@@ -158,34 +178,50 @@ export default () => {
 
         try {
             // Buscar todos os produtos disponíveis
-            const produtos = await db.get("products") as Produto[] | null;
+            const produtos = (await db.get("products")) as Produto[] | null;
             
             if (!produtos || produtos.length === 0) {
-                res.json({ products: [] });
+                res.json({ products: [], error: null });
                 return;
             }
 
-            // Tentar buscar com IA
-            try {
-                const usuarioMock: Usuario = {
-                    id: "1",
-                    nome: "Usuário",
-                    email: "usuario@unknown.com",
-                    idade: 30
-                };
-                const produtosEncontrados = await ai.searchProductsWithAI(q, usuarioMock, produtos);
-                
-                if (produtosEncontrados && produtosEncontrados.length > 0) {
-                    res.json({ products: produtosEncontrados });
-                    return;
+            let usuario: Usuario;
+
+            // Se tiver ID, busca o usuário real
+            if (userId) {
+                const usuarioReal = await db.user.getById(userId);
+                if (usuarioReal) {
+                    usuario = usuarioReal;
+                } else {
+                    // Se não encontrar, usa mock
+                    usuario = {
+                        id: "anonymous",
+                        nome: "usuario sem login",
+                        email: "anonymous@user.local",
+                        idade: 18
+                    };
                 }
-            } catch (aiError) {
-                console.warn("Erro ao buscar com IA (rota GET), usando busca simples:", aiError);
+            } else {
+                // Sem autenticação, usa mock
+                usuario = {
+                    id: "anonymous",
+                    nome: "usuario sem login",
+                    email: "anonymous@user.local",
+                    idade: 18
+                };
             }
 
-            // Fallback para busca simples (sem IA)
+            // Tentar buscar com IA
+            const resultadoIA = await ai.searchProductsWithAI(q, usuario, produtos);
+            
+            if (resultadoIA.data && resultadoIA.data.length > 0) {
+                res.json({ products: resultadoIA.data, error: resultadoIA.error || null });
+                return;
+            }
+
+            // Se a IA retornar vazio ou erro, usar fallback de busca simples
             const produtosSimples = ai.searchProductsSimple(q, produtos);
-            res.json({ products: produtosSimples });
+            res.json({ products: produtosSimples, error: resultadoIA.error || null });
 
         } catch (error: any) {
             console.error("Erro ao buscar produtos (GET /busca):", error);
@@ -194,6 +230,81 @@ export default () => {
                 return;
             }
             res.status(500).json({ error: "Erro ao buscar produtos" });
+        }
+    });
+
+    // POST /api/products/suggest - Sugerir produtos baseado no carrinho e preferências do usuário
+    router.post("/suggest", async (req: Request, res: Response) => {
+        const { carrinho } = req.body;
+        const userId = req.headers["x-user-id"] as string | undefined;
+
+        if (!Array.isArray(carrinho)) {
+            res.status(400).json({ error: "O campo 'carrinho' é obrigatório e deve ser um array de produtos" });
+            return;
+        }
+
+        // Validar cada item do carrinho com PedidoProdutoSchema
+        const validacaoCarrinho = carrinho.map(item => PedidoProdutoSchema.safeParse(item));
+        const errosValidacao = validacaoCarrinho.filter(v => !v.success);
+        if (errosValidacao.length > 0) {
+            res.status(400).json({ error: "Carrinho contém itens inválidos", details: errosValidacao[0].error });
+            return;
+        }
+
+        if (carrinho.length === 0) {
+            res.status(400).json({ error: "Carrinho vazio, não há o que sugerir" });
+            return;
+        }
+
+        try {
+            let usuario: Usuario;
+
+            // Se tiver ID, busca o usuário real
+            if (userId) {
+                const usuarioReal = await db.user.getById(userId);
+                if (usuarioReal) {
+                    usuario = usuarioReal;
+                } else {
+                    // Se não encontrar, usa mock
+                    usuario = {
+                        id: "anonymous",
+                        nome: "usuario sem login",
+                        email: "anonymous@user.local",
+                        idade: 18
+                    };
+                }
+            } else {
+                // Sem autenticação, usa mock
+                usuario = {
+                    id: "anonymous",
+                    nome: "usuario sem login",
+                    email: "anonymous@user.local",
+                    idade: 18
+                };
+            }
+
+            // Buscar todos os produtos disponíveis
+            const allProducts = (await db.get("products")) as Produto[] | null;
+            
+            if (!allProducts || allProducts.length === 0) {
+                res.json({ sugestoes: [], error: null });
+                return;
+            }
+
+            // Gerar sugestões com IA (com fallback automático)
+            const resultado = await ai.suggestProductsFromCart(carrinho, usuario, allProducts);
+            
+            res.json({ 
+                sugestoes: resultado.data || [],
+                error: resultado.error || null
+            });
+        } catch (error: any) {
+            console.error("Erro ao sugerir produtos:", error);
+            if (error?.status === "UNAVAILABLE" || error?.message?.includes("503")) {
+                res.status(503).json({ error: "Serviço de IA temporariamente indisponível, tente novamente em instantes" });
+                return;
+            }
+            res.status(500).json({ error: "Erro ao sugerir produtos" });
         }
     });
 

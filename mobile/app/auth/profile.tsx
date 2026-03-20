@@ -7,12 +7,9 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   Modal,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useUser } from '@/context/user-context';
@@ -82,10 +79,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <Modal
         visible={showLogoutModal}
         transparent
@@ -116,7 +110,8 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
-      <SafeAreaView style={styles.safeArea}>
+      <View>
+        <View style={styles.safeArea}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
             <MaterialIcons name="arrow-back" size={24} color="#333" />
@@ -236,8 +231,9 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           )}
         </ScrollView>
-      </SafeAreaView>
-    </KeyboardAvoidingView>
+        </View>
+      </View>
+    </View>
   );
 }
 

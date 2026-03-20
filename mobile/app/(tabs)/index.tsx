@@ -13,7 +13,6 @@ import {
   useWindowDimensions,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import type { Produto, Categoria } from '@shared/types';
@@ -82,7 +81,8 @@ function Sidebar({ visible, onClose }: { visible: boolean; onClose: () => void }
     <Modal transparent visible={visible} onRequestClose={onClose} animationType="none">
       <TouchableOpacity style={styles.sidebarOverlay} activeOpacity={1} onPress={onClose} />
       <Animated.View style={[styles.sidebar, { transform: [{ translateX }] }]}>
-        <SafeAreaView style={{ flex: 1 }}>
+        <View>
+          <View style={{ flex: 1 }}>
           <Text style={styles.sidebarTitle}>Menu</Text>
           <TouchableOpacity style={styles.sidebarItem} onPress={handleProfilePress}>
             <MaterialIcons name="person" size={22} color="#333" style={{ marginRight: 16 }} />
@@ -114,7 +114,8 @@ function Sidebar({ visible, onClose }: { visible: boolean; onClose: () => void }
               </View>
             )}
           </TouchableOpacity>
-        </SafeAreaView>
+        </View>
+        </View>
       </Animated.View>
     </Modal>
   );
@@ -150,10 +151,10 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<Categoria>('PRATO_PRINCIPAL');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const sectionListRef = useRef<SectionList>(null);
+  const sectionListRef = useRef<SectionList | null>(null);
 
   // Category chips auto-scroll
-  const categoryScrollRef = useRef<ScrollView>(null);
+  const categoryScrollRef = useRef<ScrollView | null>(null);
   const chipLayouts = useRef<Record<string, { x: number; width: number }>>({});
   const categoryScrollViewWidth = useRef(0);
   const categoryScrollOffset = useRef(0);
@@ -180,9 +181,9 @@ export default function HomeScreen() {
     const visStart = categoryScrollOffset.current;
     const visEnd = visStart + categoryScrollViewWidth.current;
     if (layout.x < visStart) {
-      categoryScrollRef.current.scrollTo({ x: layout.x - 16, animated: true });
+      (categoryScrollRef.current as any)?.scrollTo?.({ x: layout.x - 16, animated: true });
     } else if (layout.x + layout.width > visEnd) {
-      categoryScrollRef.current.scrollTo({
+      (categoryScrollRef.current as any)?.scrollTo?.({
         x: layout.x + layout.width - categoryScrollViewWidth.current + 16,
         animated: true,
       });
@@ -201,13 +202,17 @@ export default function HomeScreen() {
     setActiveCategory(cat);
     const idx = sections.findIndex(s => s.key === cat);
     if (idx !== -1) {
-      sectionListRef.current?.scrollToLocation({ sectionIndex: idx, itemIndex: 0, animated: true });
+      (sectionListRef.current as any)?.scrollToLocation?.({
+        sectionIndex: idx,
+        itemIndex: 0,
+        animated: true, });
     }
   };
 
   return (
     <View style={styles.container}>
-      <SafeAreaView style={styles.topSafeArea}>
+      <View>
+        <View style={styles.topSafeArea}>
         <Sidebar visible={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Search bar */}
@@ -253,8 +258,8 @@ export default function HomeScreen() {
           </TouchableOpacity>
         ))}
       </ScrollView>
-
-      </SafeAreaView>
+      </View>
+      </View>
 
       {/* Product list */}
       {loading ? (

@@ -11,7 +11,6 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import type { PedidoProduto } from '@shared/types';
@@ -52,8 +51,8 @@ export default function CartScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
+    <View>
+      <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <MaterialIcons name="arrow-back" size={24} color="#111" />
@@ -190,7 +189,8 @@ export default function CartScreen() {
           </TouchableOpacity>
         </View>
       )}
-    </SafeAreaView>
+    </View>
+    </View>
   );
 }
 

@@ -7,10 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useUser } from '@/context/user-context';
@@ -62,11 +59,9 @@ export default function RegisterScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <SafeAreaView style={styles.safeArea}>
+    <View style={styles.container}>
+      <View>
+        <View style={styles.safeArea}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
             <MaterialIcons name="arrow-back" size={24} color="#333" />
@@ -141,8 +136,9 @@ export default function RegisterScreen() {
             </TouchableOpacity>
           </View>
         </View>
-      </SafeAreaView>
-    </KeyboardAvoidingView>
+        </View>
+      </View>
+    </View>
   );
 }
 

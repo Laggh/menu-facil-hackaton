@@ -9,7 +9,6 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import type { Produto } from '@shared/types';
@@ -52,7 +51,7 @@ export default function SearchScreen() {
   const [results, setResults] = useState<Produto[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const searchInputRef = useRef<TextInput>(null);
+  const searchInputRef = useRef<TextInput | null>(null);
 
   useEffect(() => {
     // Se houver query param inicial, pesquisa automaticamente
@@ -66,7 +65,7 @@ export default function SearchScreen() {
     useCallback(() => {
       // Tira o focus do teclado se já estava aberto
       const timer = setTimeout(() => {
-        searchInputRef.current?.focus();
+        (searchInputRef.current as any)?.focus?.();
       }, 150);
       
       return () => clearTimeout(timer);
@@ -113,13 +112,14 @@ export default function SearchScreen() {
     setSearchQuery('');
     setResults([]);
     setHasSearched(false);
-    searchInputRef.current?.focus();
+    (searchInputRef.current as any)?.focus?.();
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header with search bar */}
+    <View>
+      <View style={styles.container}>
       <View style={styles.header}>
+      {/* Header with search bar */}
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => router.back()}
@@ -193,7 +193,8 @@ export default function SearchScreen() {
           </Text>
         </View>
       )}
-    </SafeAreaView>
+    </View>
+    </View>
   );
 }
 

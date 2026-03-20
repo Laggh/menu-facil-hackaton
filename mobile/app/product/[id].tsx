@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   TextInput,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { Produto } from '@shared/types';
@@ -22,8 +21,9 @@ const PRICE_COLOR = '#00BFA5';
 const ACCENT_COLOR = '#6C63FF';
 
 export default function ProductDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { id } = useLocalSearchParams();
+  const routes = useRouter();
   const { addToCart } = useCart();
   const [product, setProduct] = useState<Produto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,22 +57,26 @@ export default function ProductDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View>
+        <View style={styles.container}>
         <ActivityIndicator style={{ flex: 1 }} size="large" color={ACCENT_COLOR} />
-      </SafeAreaView>
+        </View>
+      </View>
     );
   }
 
   if (!product) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View>
+        <View style={styles.container}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <MaterialIcons name="arrow-back" size={24} color="#111" />
         </TouchableOpacity>
         <Text style={{ textAlign: 'center', marginTop: 40, color: '#999' }}>
           Produto não encontrado.
         </Text>
-      </SafeAreaView>
+        </View>
+      </View>
     );
   }
 
@@ -92,11 +96,12 @@ export default function ProductDetailScreen() {
         )}
 
         {/* Back button overlaid on image */}
-        <SafeAreaView style={styles.backOverlay}>
+        <View>
+        <View style={styles.backOverlay}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <MaterialIcons name="arrow-back" size={22} color="#fff" />
           </TouchableOpacity>
-        </SafeAreaView>
+        </View>
 
         {/* Content */}
         <View style={styles.content}>
@@ -153,6 +158,7 @@ export default function ProductDetailScreen() {
             />
           </View>
         </View>
+      </View>
       </ScrollView>
 
       {/* Add to cart footer */}

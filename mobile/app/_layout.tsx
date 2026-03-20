@@ -26,6 +26,8 @@ export default function RootLayout() {
             <Stack.Screen name="auth/login" options={{ headerShown: false }} />
             <Stack.Screen name="auth/register" options={{ headerShown: false }} />
             <Stack.Screen name="auth/profile" options={{ headerShown: false }} />
+            <Stack.Screen name="orders" options={{ headerShown: false }} />
+            <Stack.Screen name="order-detail" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>

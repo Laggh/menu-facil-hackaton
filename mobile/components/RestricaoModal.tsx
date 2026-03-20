@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { RestricaoInfo } from '@/constants/restricoes';
 
@@ -36,7 +35,8 @@ export function RestricaoModal({ visible, restricao, onClose }: RestricaoModalPr
       />
 
       {/* Modal content */}
-      <SafeAreaView style={styles.container}>
+      <View>
+        <View style={styles.container}>
         <View style={styles.modalContent}>
           {/* Header */}
           <View style={styles.header}>
@@ -71,7 +71,8 @@ export function RestricaoModal({ visible, restricao, onClose }: RestricaoModalPr
             <Text style={styles.actionButtonText}>Entendi</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+        </View>
+      </View>
     </Modal>
   );
 }

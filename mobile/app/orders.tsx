@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, FlatList } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import type { Pedido } from '@shared/types';
@@ -137,8 +136,9 @@ export default function OrdersScreen() {
     activeTab === 'pending' ? pendentes : activeTab === 'completed' ? completos : cancelados;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <View>
+    <View style={styles.container}>
+    <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <MaterialIcons name="arrow-back" size={24} color="#111" />
         </TouchableOpacity>
@@ -201,7 +201,8 @@ export default function OrdersScreen() {
           {currentOrders.map(renderOrder)}
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
+    </View>
   );
 }
 

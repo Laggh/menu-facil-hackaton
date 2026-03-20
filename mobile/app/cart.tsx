@@ -116,8 +116,6 @@ export default function CartScreen() {
         {/* Cart items */}
         {cart.length === 0 ? (
           <View>
-            <Text style={styles.empty}>Nenhum item no carrinho.</Text>
-            
             {/* Repeat Last Order */}
             {lastOrder && (
               <View style={styles.repeatOrderContainer}>
@@ -155,6 +153,8 @@ export default function CartScreen() {
                 </View>
               </View>
             )}
+            
+            <Text style={styles.empty}>Nenhum item no carrinho.</Text>
           </View>
         ) : (
           cart.map(item => (

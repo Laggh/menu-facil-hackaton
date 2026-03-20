@@ -158,8 +158,19 @@ export default function OrdersScreen() {
     </TouchableOpacity>
   );
 
-  const currentOrders =
-    activeTab === 'pending' ? pendentes : activeTab === 'completed' ? [...completos, ...arquivados] : cancelados;
+  const currentOrders = (() => {
+    let orders: Pedido[] = [];
+    if (activeTab === 'pending') {
+      orders = pendentes;
+    } else if (activeTab === 'completed') {
+      orders = [...completos, ...arquivados].sort(
+        (a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime()
+      );
+    } else {
+      orders = cancelados;
+    }
+    return orders;
+  })();
 
   return (
     <View style={styles.outerContainer}>

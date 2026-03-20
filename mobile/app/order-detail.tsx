@@ -9,6 +9,7 @@ const ACCENT_COLOR = '#6C63FF';
 const SUCCESS_COLOR = '#00BFA5';
 const PENDING_COLOR = '#FF9800';
 const CANCELLED_COLOR = '#E53935';
+const ARCHIVED_COLOR = '#2196F3';
 
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -56,6 +57,8 @@ export default function OrderDetailScreen() {
         return PENDING_COLOR;
       case 'COMPLETO':
         return SUCCESS_COLOR;
+      case 'ARQUIVADO':
+        return ARCHIVED_COLOR;
       case 'CANCELADO':
         return CANCELLED_COLOR;
       default:
@@ -69,6 +72,8 @@ export default function OrderDetailScreen() {
         return 'Em Preparação';
       case 'COMPLETO':
         return 'Pronto para Retirada';
+      case 'ARQUIVADO':
+        return 'Arquivado';
       case 'CANCELADO':
         return 'Cancelado';
       default:

@@ -20,9 +20,9 @@ export default function OrderDetailScreen() {
     if (id) {
       loadOrder();
 
-      // Poll every 5 seconds
+      // Poll every 5 seconds (silent refresh)
       const interval = setInterval(() => {
-        loadOrder();
+        refetchOrderSilently();
       }, 5000);
 
       return () => clearInterval(interval);
@@ -38,6 +38,15 @@ export default function OrderDetailScreen() {
       console.error('Erro ao carregar pedido:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refetchOrderSilently = async () => {
+    try {
+      const result = await api.orders.getById(id as string);
+      setOrder(result.order);
+    } catch (error) {
+      console.error('Erro ao refetch pedido:', error);
     }
   };
 

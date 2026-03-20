@@ -21,9 +21,9 @@ export default function OrdersScreen() {
   useEffect(() => {
     loadOrders();
 
-    // Poll every 5 seconds
+    // Poll every 5 seconds (silent refresh)
     const interval = setInterval(() => {
-      loadOrders();
+      refetchOrdersSilently();
     }, 5000);
 
     return () => clearInterval(interval);
@@ -40,6 +40,17 @@ export default function OrdersScreen() {
       console.error('Erro ao carregar pedidos:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refetchOrdersSilently = async () => {
+    try {
+      const result = await api.orders.getByUser();
+      setPendentes(result.pendentes || []);
+      setCompletos(result.completos || []);
+      setCancelados(result.cancelados || []);
+    } catch (error) {
+      console.error('Erro ao refetch pedidos:', error);
     }
   };
 

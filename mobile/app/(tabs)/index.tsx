@@ -13,9 +13,10 @@ import {
   useWindowDimensions,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import type { Produto, Categoria } from '@shared/types';
+import type { Produto, Categoria, Pedido } from '@shared/types';
 import api from '@/lib/api';
 import { useCart } from '@/context/cart-context';
 import { useUser } from '@/context/user-context';
@@ -81,15 +82,21 @@ function Sidebar({ visible, onClose }: { visible: boolean; onClose: () => void }
     <Modal transparent visible={visible} onRequestClose={onClose} animationType="none">
       <TouchableOpacity style={styles.sidebarOverlay} activeOpacity={1} onPress={onClose} />
       <Animated.View style={[styles.sidebar, { transform: [{ translateX }] }]}>
-        <View>
-          <View style={{ flex: 1 }}>
-          <Text style={styles.sidebarTitle}>Menu</Text>
-          <TouchableOpacity style={styles.sidebarItem} onPress={handleProfilePress}>
-            <MaterialIcons name="person" size={22} color="#333" style={{ marginRight: 16 }} />
-            <Text style={styles.sidebarItemText}>
-              {user ? `Perfil (${user.nome})` : 'Fazer Login'}
-            </Text>
-          </TouchableOpacity>
+        <SafeAreaView style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+            <Text style={styles.sidebarTitle}>Menu</Text>
+            <TouchableOpacity onPress={handleProfilePress}>
+              {user ? (
+                <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: ACCENT_COLOR, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 20, fontWeight: '700', color: '#fff' }}>
+                    {user.nome.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              ) : (
+                <MaterialIcons name="person" size={48} color="#333" />
+              )}
+            </TouchableOpacity>
+          </View>
           <TouchableOpacity
             style={styles.sidebarItem}
             onPress={() => { onClose(); router.push('/cart'); }}
@@ -114,8 +121,7 @@ function Sidebar({ visible, onClose }: { visible: boolean; onClose: () => void }
               </View>
             )}
           </TouchableOpacity>
-        </View>
-        </View>
+        </SafeAreaView>
       </Animated.View>
     </Modal>
   );
@@ -151,10 +157,14 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<Categoria>('PRATO_PRINCIPAL');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const sectionListRef = useRef<SectionList | null>(null);
+  const [lastOrder, setLastOrder] = useState<Pedido | null>(null);
+  const [showRepeatOrder, setShowRepeatOrder] = useState(true);
+  const sectionListRef = useRef<SectionList>(null);
+  const { addToCart } = useCart();
+  const { user } = useUser();
 
   // Category chips auto-scroll
-  const categoryScrollRef = useRef<ScrollView | null>(null);
+  const categoryScrollRef = useRef<ScrollView>(null);
   const chipLayouts = useRef<Record<string, { x: number; width: number }>>({});
   const categoryScrollViewWidth = useRef(0);
   const categoryScrollOffset = useRef(0);
@@ -166,13 +176,33 @@ export default function HomeScreen() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Fetch last completed order
+  useEffect(() => {
+    if (user) {
+      loadLastOrder();
+    }
+  }, [user]);
+
+  const loadLastOrder = async () => {
+    try {
+      const result = await api.orders.getByUser();
+      if (result.completos && result.completos.length > 0) {
+        setLastOrder(result.completos[0]); // Most recent is first
+        setShowRepeatOrder(true);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar último pedido:', error);
+    }
+  };
+
   // Limpa o estado ao voltar para a home
   useFocusEffect(
     useCallback(() => {
-      return () => {
-        // Este código roda quando a tela perde o foco
-      };
-    }, [])
+      // Reload last order when screen comes into focus
+      if (user) {
+        loadLastOrder();
+      }
+    }, [user])
   );
 
   const scrollChipsToShow = (cat: Categoria) => {
@@ -181,9 +211,9 @@ export default function HomeScreen() {
     const visStart = categoryScrollOffset.current;
     const visEnd = visStart + categoryScrollViewWidth.current;
     if (layout.x < visStart) {
-      (categoryScrollRef.current as any)?.scrollTo?.({ x: layout.x - 16, animated: true });
+      categoryScrollRef.current.scrollTo({ x: layout.x - 16, animated: true });
     } else if (layout.x + layout.width > visEnd) {
-      (categoryScrollRef.current as any)?.scrollTo?.({
+      categoryScrollRef.current.scrollTo({
         x: layout.x + layout.width - categoryScrollViewWidth.current + 16,
         animated: true,
       });
@@ -202,17 +232,35 @@ export default function HomeScreen() {
     setActiveCategory(cat);
     const idx = sections.findIndex(s => s.key === cat);
     if (idx !== -1) {
-      (sectionListRef.current as any)?.scrollToLocation?.({
-        sectionIndex: idx,
-        itemIndex: 0,
-        animated: true, });
+      sectionListRef.current?.scrollToLocation({ sectionIndex: idx, itemIndex: 0, animated: true });
+    }
+  };
+
+  const handleRepeatOrder = async () => {
+    if (!lastOrder) return;
+    
+    try {
+      for (const pedidoProduto of lastOrder.produtos) {
+        // Add each item to cart with its quantity
+        for (let i = 0; i < pedidoProduto.quantidade; i++) {
+          addToCart(pedidoProduto.produto, pedidoProduto.observacao);
+        }
+      }
+      
+      // Dismiss the card and navigate to cart
+      setShowRepeatOrder(false);
+      // Small delay to show action completed
+      setTimeout(() => {
+        router.push('/cart');
+      }, 300);
+    } catch (error) {
+      console.error('Erro ao repetir pedido:', error);
     }
   };
 
   return (
     <View style={styles.container}>
-      <View>
-        <View style={styles.topSafeArea}>
+      <SafeAreaView style={styles.topSafeArea}>
         <Sidebar visible={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Search bar */}
@@ -258,8 +306,62 @@ export default function HomeScreen() {
           </TouchableOpacity>
         ))}
       </ScrollView>
-      </View>
-      </View>
+
+      </SafeAreaView>
+
+      {/* Repeat Last Order Card */}
+      {lastOrder && showRepeatOrder && (
+        <View style={styles.repeatOrderContainer}>
+          <View style={styles.repeatOrderCard}>
+            <View style={styles.repeatOrderHeader}>
+              <View>
+                <Text style={styles.repeatOrderTitle}>Seu último pedido</Text>
+                <Text style={styles.repeatOrderDate}>
+                  {new Date(lastOrder.criado_em).toLocaleDateString('pt-BR')}
+                </Text>
+              </View>
+              <TouchableOpacity 
+                onPress={() => setShowRepeatOrder(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <MaterialIcons name="close" size={20} color="#999" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.repeatOrderProducts}>
+              {lastOrder.produtos.map((item, idx) => (
+                <View key={idx} style={styles.repeatOrderItem}>
+                  <View style={styles.repeatOrderItemInfo}>
+                    <Text style={styles.repeatOrderItemName}>{item.produto.nome}</Text>
+                    {item.quantidade > 1 && (
+                      <Text style={styles.repeatOrderItemQty}>x{item.quantidade}</Text>
+                    )}
+                  </View>
+                  <Text style={styles.repeatOrderItemPrice}>
+                    R$ {(item.preco * item.quantidade).toFixed(2)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.repeatOrderFooter}>
+              <View>
+                <Text style={styles.repeatOrderTotal}>Total</Text>
+                <Text style={styles.repeatOrderTotalPrice}>
+                  R$ {lastOrder.preco_total.toFixed(2)}
+                </Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.repeatOrderButton}
+                onPress={handleRepeatOrder}
+              >
+                <MaterialIcons name="add-shopping-cart" size={20} color="#fff" />
+                <Text style={styles.repeatOrderButtonText}>Repetir</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Product list */}
       {loading ? (
@@ -335,4 +437,105 @@ const styles = StyleSheet.create({
   cartBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   pendingBadge: { marginLeft: 'auto', backgroundColor: '#FF9800', borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   pendingBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+
+  // Repeat Last Order
+  repeatOrderContainer: { paddingHorizontal: 16, paddingVertical: 12 },
+  repeatOrderCard: { 
+    backgroundColor: '#F9F9F9', 
+    borderRadius: 12, 
+    borderWidth: 1, 
+    borderColor: '#E0E0E0', 
+    overflow: 'hidden'
+  },
+  repeatOrderHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0'
+  },
+  repeatOrderTitle: { 
+    fontSize: 14, 
+    fontWeight: '700', 
+    color: '#111',
+    marginBottom: 2
+  },
+  repeatOrderDate: { 
+    fontSize: 12, 
+    color: '#999'
+  },
+  repeatOrderProducts: { 
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0'
+  },
+  repeatOrderItem: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+    marginBottom: 2
+  },
+  repeatOrderItemInfo: { 
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6
+  },
+  repeatOrderItemName: { 
+    fontSize: 13, 
+    color: '#333',
+    fontWeight: '500',
+    flex: 1
+  },
+  repeatOrderItemQty: { 
+    fontSize: 12, 
+    color: '#999',
+    backgroundColor: '#EFEFEF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden'
+  },
+  repeatOrderItemPrice: { 
+    fontSize: 12, 
+    fontWeight: '600',
+    color: PRICE_COLOR,
+    marginLeft: 8
+  },
+  repeatOrderFooter: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12
+  },
+  repeatOrderTotal: { 
+    fontSize: 12, 
+    color: '#999',
+    marginBottom: 2
+  },
+  repeatOrderTotalPrice: { 
+    fontSize: 16, 
+    fontWeight: '700',
+    color: PRICE_COLOR
+  },
+  repeatOrderButton: { 
+    backgroundColor: ACCENT_COLOR, 
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    gap: 6
+  },
+  repeatOrderButtonText: { 
+    color: '#fff', 
+    fontSize: 13,
+    fontWeight: '600'
+  },
 });

@@ -19,6 +19,13 @@ export default function OrderDetailScreen() {
   useEffect(() => {
     if (id) {
       loadOrder();
+
+      // Poll every 5 seconds
+      const interval = setInterval(() => {
+        loadOrder();
+      }, 5000);
+
+      return () => clearInterval(interval);
     }
   }, [id]);
 
@@ -91,7 +98,7 @@ export default function OrderDetailScreen() {
   }
 
   return (
-    <View>
+    <View style={styles.outerContainer}>
       <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.push('/orders')} style={styles.backButton}>
@@ -206,7 +213,8 @@ export default function OrderDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
+  outerContainer: { flex: 1, backgroundColor: '#F5F5F5' },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -476,12 +476,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6
   },
-  repeatOrderItemName: { 
-    fontSize: 13, 
-    color: '#333',
-    fontWeight: '500',
-    flex: 1
-  },
   repeatOrderItemQty: { 
     fontSize: 12, 
     color: '#999',
@@ -490,6 +484,12 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 4,
     overflow: 'hidden'
+  },
+  repeatOrderItemName: { 
+    fontSize: 13, 
+    color: '#333',
+    fontWeight: '500',
+    flex: 1
   },
   repeatOrderItemPrice: { 
     fontSize: 12, 
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
   repeatOrderTotalPrice: { 
     fontSize: 14, 
     fontWeight: '700',
-    color: '#111'
+    color: PRICE_COLOR
   },
   repeatOrderButton: { 
     backgroundColor: ACCENT_COLOR, 

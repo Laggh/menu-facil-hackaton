@@ -1,211 +1,241 @@
-# 🌐 Documentação de Rotas da API (Menu Fácil)
+# Documentacao de Rotas da API (Menu Facil)
 
-Este arquivo centraliza e descreve todas as rotas e endpoints disponíveis no App (Back-end: Express.js).
+Este arquivo descreve as rotas realmente implementadas no back-end atual.
 
-> **Convenção:** A IA é um detalhe de implementação, não parte da URL. Rotas são orientadas a recursos. Onde há inteligência por baixo, está indicado com 🤖.
-
-Todas as rotas (`/api/`) retornam respostas tipificadas em JSON.
+Todas as rotas de API usam JSON.
 
 ---
 
-## 🟢 Rotas Gerais (`server/src/index.ts`)
+## Rotas Gerais (server/src/index.ts)
 
 ### GET /
-Rota base, confirmação simples de que a API está rodando.
-- **Input:** Nenhum
-- **Output:** `{ message: "..." }`
-- **Comentários:** Usado basicamente para verificar se o Node não "crashou".
+Confirma que a API esta no ar.
+- Input: nenhum
+- Output: { message: "Bem-vindo a API Menu Facil!" }
 
 ### GET /ping
-Rota de healthcheck para serviços na nuvem mapearem atividade.
-- **Input:** Nenhum
-- **Output:** `"pong"` ou `{ status: "ok" }`
-- **Comentários:** Retorno extremamente leve, ideal para _liveness probes_.
+Healthcheck simples.
+- Input: nenhum
+- Output: { message: "Pong!" }
 
 ### GET /db
-Rota de suporte para garantir que o banco em memória (ou real) está populado e as tabelas criadas.
-- **Input:** Nenhum
-- **Output:** Confirmação de status do banco.
-- **Comentários:** Útil rodar manualmente na inicialização durante testes ou hackathon.
+Teste de escrita e leitura no Redis.
+- Input: nenhum
+- Output: { value: "Hello, Redis!" }
 
 ---
 
-## 🍔 Produtos (`/api/products/`)
-*Arquivo:* `server/src/user/productRoutes.ts`
+## Produtos (/api/products) (server/src/user/productRoutes.ts)
 
-### GET /api/products/
-Retorna o catálogo completo de produtos.
-- **Input:** Query param opcional: `?categoria=` (ex: `PRATO_PRINCIPAL`)
-- **Output:** Array de objetos Produto: `[ { id, nome, preco, categoria, imagem_url, restricoes }, ... ]`
-- **Comentários:** Se a categoria solicitada não for encontrada ou a string for inválida, pode retornar `404` ou lista vazia.
+### GET /api/products
+Lista todo o catalogo.
+- Input: nenhum
+- Output: { products: Produto[] }
 
 ### GET /api/products/:id
-Retorna os detalhes de um produto específico.
-- **Input:** Route param `:id` (UUID do produto)
-- **Output:** Objeto detalhado do Produto.
-- **Comentários:** Se não encontrado, retorna erro `404 Not Found`.
+Retorna um produto por ID numerico.
+- Input:
+	- route param: id (number)
+- Output: { product: Produto }
+- Erros comuns: 400 (id invalido), 404 (nao encontrado)
 
-### POST /api/products/
-(Admin) Criação de um novo produto no cardápio.
-- **Input:** Objeto JSON no body da requisição (nome, preco, categoria, ingredientes, etc.)
-- **Output:** JSON com o objeto criado incluindo seu novo ID.
-- **Comentários:** Validações de segurança e tipagem podem rejeitar a requisição com `400` para body incompleto.
+### POST /api/products
+Cria produto.
+- Input: body com Produto sem id
+- Output: { product: Produto }
+- Erros comuns: 400 (dados invalidos)
 
 ### PUT /api/products/:id
-(Admin) Atualização dos dados de um produto existente.
-- **Input:** Route param `:id` e Body contendo as chaves para atualização.
-- **Output:** O objeto do produto atualizado.
-- **Comentários:** Se o ID informado não existir na base, retorna erro `404`.
+Atualiza produto por ID.
+- Input:
+	- route param: id (number)
+	- body: campos parciais de Produto
+- Output: { product: Produto | null }
+- Erros comuns: 400 (id invalido ou dados invalidos)
 
 ### DELETE /api/products/:id
-(Admin) Remove um produto permanentemente.
-- **Input:** Route param `:id`
-- **Output:** Mensagem de sucesso (ex: `{ success: true }`).
-- **Comentários:** Remoção de produtos deve ser feita com cautela por conta de histórico de pedidos.
+Remove produto por ID.
+- Input: route param id (number)
+- Output: { message: "Produto excluido com sucesso" }
+- Erros comuns: 400 (id invalido)
+
+### POST /api/products/generate-description
+Gera descricao, ingredientes e restricoes por IA.
+- Input: { name: string, definicao?: string }
+- Output:
+	- sucesso: { data: { definicao: string | null, descricao: string, restricoes: Restricao[], ingredientes: string[] } }
+- Erros comuns: 400 (name ausente), 422 (informacao insuficiente), 503 (IA indisponivel)
+
+### POST /api/products/search
+Busca com IA e fallback textual.
+- Input:
+	- body: { query: string }
+	- header opcional: x-user-id
+- Output: { produtos: Produto[], error: string | null }
+- Observacao: esta rota responde com chave produtos (PT-BR).
 
 ### GET /api/products/busca
-Busca básica de texto por produtos.
-- **Input:** Query param `?q=` (ex: `?q=salada`)
-- **Output:** Array de objetos Produto filtrados.
-- **Comentários:** Retorna `400` caso a busca esteja vazia. Serve como fallback caso a busca semântica esteja inativa.
+Busca por query em GET com IA + fallback.
+- Input:
+	- query param: q (string)
+	- header opcional: x-user-id
+- Output: { products: Produto[], error: string | null }
+- Observacao: esta rota responde com chave products (EN).
 
-### POST /api/products/search 🤖
-Busca semântica inteligente (NLP). Cruza intenções fluídas ("quero algo leve sem lactose") com itens do cardápio.
-- **Input:** Body no formato `{ "query": "texto da busca" }` e/ou Query param `?q=`
-- **Output:** Array dos produtos que corresponderem ao perfil filtrado pelo Gemini.
-- **Comentários:** Caso o Gemini falhe, levante instabilidades ou o limite da API do Google bata (erro 500), um bloco _catch/fallback_ deve rodar uma busca em texto limpo padrão.
-
-### POST /api/products/suggest 🤖
-Recomenda produtos baseados estritamente na etiqueta inteligente preexistente de um usuário.
-- **Input:** Body contendo `{ "usuarioId": "uuid-do-usuario" }`
-- **Output:** 3 Objetos Produto sob medida.
-- **Comentários:** Se o `usuarioId` for inválido: `404`. Caso caia o serviço de IA, retorna sugestões básicas pelo horário do dia.
-
-### POST /api/products/generate-description 🤖
-(Admin) Gera metadados de um prato inteiro (definição, ingredientes, restrições alimentares) consumindo a IA, para aliviar atrito no cadastro para o vendedor.
-- **Input:** Body contendo o nome: `{ "nome": "Risoto Quatro Queijos", "definicao": "(opcional)" }`
-- **Output:** JSON estruturado com os arrays sugeridos.
-- **Comentários:** Se o nome vier em branco causa `400`. Pode retornar `null` caso a estrutura do JSON da IA fuja do `responseSchema` obrigatório.
+### POST /api/products/suggest
+Sugere produtos com base no carrinho.
+- Input:
+	- body: { carrinho: PedidoProduto[] }
+	- header opcional: x-user-id
+- Output: { sugestoes: Produto[], error: string | null }
+- Erros comuns: 400 (carrinho ausente, vazio ou invalido)
 
 ---
 
-## 📦 Pedidos (`/api/orders/`)
-*Arquivo:* `server/src/user/orderRoutes.ts`
+## Pedidos (/api/orders) (server/src/user/orderRoutes.ts)
 
-### GET /api/orders/
-(Admin) Lista todos os pedidos registrados de todos os clientes.
-- **Input:** Parâmetros de paginação e filtros opcionais.
-- **Output:** Array completo de todo o histórico de Pedidos e Carrinhos fechados.
-- **Comentários:** Recomenda-se adicionar limites/paginação, pois a lista pode crescer descontroladamente.
+### POST /api/orders
+Cria pedido do usuario autenticado.
+- Input:
+	- header obrigatorio: x-user-id
+	- body: { produtos: PedidoProduto[], horario?: string }
+- Output: { order: Pedido }
+- Erros comuns: 401 (sem x-user-id), 400 (payload invalido)
 
 ### GET /api/orders/user
-Retorna os pedidos da conta do usuário que está logado.
-- **Input:** O sistema lê os metadados do solicitante logado na requisição (ex: ID na header/cookie).
-- **Output:** Lista com histórico de compras do cliente.
-- **Comentários:** Array vazio `[]` caso nunca tenha comprado.
+Lista pedidos do usuario autenticado.
+- Input: header obrigatorio x-user-id
+- Output: { orders, pendentes, completos, cancelados, arquivados }
+- Erros comuns: 401
+
+### GET /api/orders
+Lista pedidos (visao admin).
+- Input: nenhum
+- Output: { orders, pendentes, completos, cancelados, arquivados }
+
+### GET /api/orders/latest
+Retorna o ultimo pedido do usuario autenticado.
+- Input: header obrigatorio x-user-id
+- Output: { order: Pedido }
+- Erros comuns: 401, 404 (sem pedidos)
 
 ### GET /api/orders/:id
-Mostra detalhes ou recibo de um pedido passados.
-- **Input:** Route param `:id`
-- **Output:** Objeto Pedido (com array dos produtos internos contidos).
-- **Comentários:** Erro `404` se o Id pesquisado não existir.
+Busca pedido por ID.
+- Input: route param id (string)
+- Output: { order: Pedido }
+- Erros comuns: 404
 
-### POST /api/orders/
-Criação/Checkout de um novo pedido. O final do funil de venda.
-- **Input:** JSON estruturado contendo a listagem atual do carrinho. Ex: `{ "usuarioId": "...", "produtos": [...], "preco_total": 45.90, "horario": "..." }`
-- **Output:** Recibo contendo as chaves do novo pedido gravado no BD.
-- **Comentários:** O sistema confere as restrições dos produtos. Caso algum produto listado tenha sido deletado, poderá engatilhar `400`.
-
-### PUT /api/orders/:id/status 🤖
-Atualiza manualmente a "esteira" do pedido.
-- **Input:** Rota `:id` com body `{ "status": "FINALIZADO" }`
-- **Output:** Status modificado.
-- **Comentários:** **Extremamente Importante**: É aqui que o perfil IA do cliente avança em background. Quando um pedido ganha sinal positivo (`Concluído/Finalizado`), um Agent do Gemini atualiza e refina a sua `etiqueta` com base na nova compra de forma assíncrona.
+### PUT /api/orders/:id/status
+Atualiza status de pedido e, em transicao PENDENTE -> COMPLETO, tenta atualizar etiqueta de usuario via IA.
+- Input:
+	- route param id
+	- body: { status: "PENDENTE" | "COMPLETO" | "CANCELADO" | "ARQUIVADO" }
+- Output: { order: Pedido }
+- Erros comuns: 400 (status invalido), 404
 
 ### PUT /api/orders/:id/archive
-Movimenta o pedido para uma abas de arquivados num Dashboard (esconde da listagem padrão de preparo).
-- **Input:** Route param `:id`
-- **Output:** Alteração de "active" ou status equivalente.
-- **Comentários:** Oculta para a view admin da cozinha, sem excluir do BD.
+Arquiva pedido (equivale a status ARQUIVADO).
+- Input: route param id
+- Output: { order: Pedido }
+- Erros comuns: 404
 
 ---
 
-## 👥 Usuários (`/api/user/`)
-*Arquivo:* `server/src/user/userRoutes.ts`
+## Usuarios (/api/user) (server/src/user/userRoutes.ts)
 
-### GET /api/user/
-Traz uma listagem geral de contas.
-- **Input:** Nenhum.
-- **Output:** Array com todos os usuários do app.
-- **Comentários:** Rota tipicamente de controle admin generalizado.
+### GET /api/user
+Lista usuarios.
+- Input: nenhum
+- Output: { users: Usuario[] }
 
 ### GET /api/user/me
-Rota para a interface puxar os atributos básicos do próprio usuário logado a qualquer momento.
-- **Input:** Auth guard / contexto da sessão atual.
-- **Output:** Objeto Usuário (ex: nome, id, saldo/fidelidade).
-- **Comentários:** Pode falhar com `401 Unauthorized` se a requisição via Axios não tiver token/cookie vigente.
-
-### POST /api/user/login
-Efetua autenticação ativa do indivíduo.
-- **Input:** `{ "email": "teste@email.com", "senha": "abc" }`
-- **Output:** Resposta com credenciais ou token assinado para ser ingerido pelo app.
-- **Comentários:** Levanta status da casa do `401 - Unauthorized` para falhas de credenciais (ou 404 se email não estiver preexistente).
+Retorna dados do usuario autenticado.
+- Input: header obrigatorio x-user-id
+- Output: { user: Usuario }
+- Erros comuns: 401, 404
 
 ### POST /api/user/register
-Cadastro de um prospecto recomeçado do zero.
-- **Input:** Formulário inicial `{ "nome": "...", "email": "...", "senha": "..." }`
-- **Output:** Perfil gravado, geralmente já seguido de log-in automático (Token retornado junto com sucesso do objeto novo).
-- **Comentários:** Se e-mail já estiver na base pode ejetar um `409 Conflict`.
+Cria novo usuario.
+- Input: { nome: string, email: string, idade: number }
+- Output: { user: Usuario }
+- Erros comuns: 400 (campos invalidos), 409 (email ja registrado)
+
+### POST /api/user/login
+Login por email.
+- Input: { email: string }
+- Output: { user: Usuario, token: string }
+- Observacao: token atualmente e o proprio user.id
+- Erros comuns: 400, 404
 
 ### PUT /api/user/edit
-Alteração de conta/Configurações pelo cliente.
-- **Input:** Partes que foram editadas como nome, avatar ou traços.
-- **Output:** Seu perfil novo modificado para renderizar de volta na tela de settings.
-- **Comentários:** Permissões requeridas.
+Atualiza campos do usuario autenticado.
+- Input:
+	- header obrigatorio: x-user-id
+	- body parcial: { nome?, email?, idade?, etiqueta? }
+- Output: { user: Usuario }
+- Erros comuns: 401, 400, 404
 
 ---
 
-## 🧠 Inteligência Artificial (`/api/ia/`)
-*Arquivo:* `server/src/user/aiRoutes.ts`
+## IA (/api/ia) (server/src/user/aiRoutes.ts)
 
-### GET /api/ia/
-Visualizador de Saúde/Logs pontuais das chamadas do Google Gemini.
-- **Input:** Nenhum
-- **Output:** Status se a chave está configurada e respondendo na porta atual.
-- **Comentários:** Essencial nas Hackathons para diagnosticar APIs fora do ar em vez de duvidar do front-end.
+### GET /api/ia
+Healthcheck da camada de IA.
+- Input: nenhum
+- Output: { message, apiKey, apiKeyConfigured }
+- Observacao: atualmente expõe apiKey na resposta; isso nao e recomendado para producao.
 
-### GET /api/ia/generate 🤖
-Ferramenta interna para verificação da lib de geração.
-- **Input:** Query string ex: `?prompt=meu_prompt`
-- **Output:** Retorno simples com a resposta por escrito.
-- **Comentários:** Principalmente de uso interno, rota frágil e desencorajada de estar exposta no ambiente de prod. 
+### GET /api/ia/generate
+Teste simples de geracao.
+- Input: query param opcional prompt
+- Output: { generated: string }
 
-### GET /api/ia/recommendations 🤖
-Consolidador direto de perfis ("🌟 Feito para Você").
-- **Input:** Nenhum payload estrito se a ID for captada sozinha pela sessão da call de API.
-- **Output:** Array de pratos (tipicamente 3) baseados nos traços da `etiqueta` comportamental que o Agent vem juntando.
-- **Comentários:** Tem um fallback que volta apenas em cima de itens que possuem categorias que melhor combinam com o `horário de relógio do sistema` para não haver seções vazias.
+### GET /api/ia/recommendations
+Recomendacoes por perfil de usuario.
+- Input: header opcional x-user-id
+- Output: { recommendations: Produto[], error?: string | null }
 
-### POST /api/ia/suggest-from-cart 🤖
-Motor de _Upsell_ para aumentar receita no momento do checkout e diminuir fricção de descobertas.
-- **Input:** Objeto com IDs que já estão na sacola: `{ "usuarioId": "1", "carrinhoIds": ["id1", "id2"] }`
-- **Output:** Objeto único (um Produto com match contextual como refrigerante zero para acompanhar, etc). Pode ser `null`.
-- **Comentários:** Caso algum dos arrays `carrinhoIds` não for decifrado, falha 404. Seu _fallback_ estúpido no Catch(e) interno tenta jogar uma categoria complementar de qualquer preceito (ex: sobremesas se a pessoa tem salgados) ao invés de desistir e não renderizar recomendação pela quebra do provedor do LLM.
+### POST /api/ia/suggest-from-cart
+Sugere itens complementares com base no carrinho.
+- Input:
+	- body: { cart: PedidoProduto[] }
+	- header opcional: x-user-id
+- Output: { suggestions: Produto[], error?: string | null }
+- Erros comuns: 400 (cart invalido)
 
 ---
 
-## ⚙️ Utilitários
+## Logs, Upload e Tasks
 
-### POST /api/upload/
-*Arquivo:* `server/src/uploadRoute.ts`
-Processa e sobe binários como fotos de anúncios na tela admin.
-- **Input:** FormData `multipart/form-data` portando o campo referenciado do file.
-- **Output:** String/JSON da URL em tempo real para pré-visualização ou salvamento posterior em pratos.
-- **Comentários:** Encerra no status `400` caso falte o anexo principal, ou `413 Payload Too Large` sobre dimensionado contra as limits de `body-parser`.
+### GET /api/log (server/src/user/logRoutes.ts)
+Retorna logs das chamadas Gemini.
+- Input: nenhum
+- Output: { logs: (GeminiLog | { raw: string })[] }
 
-### GET /api/log/
-*Arquivo:* `server/src/user/logRoutes.ts`
-Lê os contêineres de log para o dashboard expor decisões em texto (debug pro painel).
-- **Input:** Opções de linhas ou filtro a critério de query parameters.
-- **Output:** Trilha de Logs ou Strings.
-- **Comentários:** Geralmente útil para uma aba técnica na interface ilustrar pro júri "a IA conversando no back-end".
+### POST /api/upload (server/src/uploadRoute.ts)
+Upload de imagem (multipart/form-data).
+- Input: campo file (imagem)
+- Output: { url: string }
+- Limites: 4MB, apenas mimetype image/*
+
+### GET /api/tasks (server/src/user/taskRoutes.ts)
+Resumo de tasks na fila.
+- Output: { total, pending, completed, failed, tasks }
+
+### GET /api/tasks/pending
+Tasks com status pending.
+
+### GET /api/tasks/processing
+Tasks com status processing.
+
+### GET /api/tasks/stats
+Estatisticas de tasks.
+
+### GET /api/tasks/type/:type
+Tasks por tipo (atualmente GENERATE_USER_TAG).
+
+### GET /api/tasks/user/:usuarioId
+Tasks por usuario.
+
+### GET /api/tasks/:id
+Task por ID (aceita busca parcial como fallback).

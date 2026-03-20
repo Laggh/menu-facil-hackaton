@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,17 +13,60 @@ import {
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
-import type { PedidoProduto } from '@shared/types';
+import type { PedidoProduto, Pedido } from '@shared/types';
+import api from '@/lib/api';
 import { useCart } from '@/context/cart-context';
+import { useUser } from '@/context/user-context';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 const PRICE_COLOR = '#00BFA5';
 const ACCENT_COLOR = '#6C63FF';
 
 export default function CartScreen() {
   const { cart, updateQty, removeFromCart, updateObservacao, placeOrder, addToCart, suggestions, loadingSuggestions } = useCart();
+  const { user } = useUser();
   const [editing, setEditing] = useState<PedidoProduto | null>(null);
   const [editObs, setEditObs] = useState('');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [placing, setPlacing] = useState(false);
+  const [lastOrder, setLastOrder] = useState<Pedido | null>(null);
+  const [loadingLastOrder, setLoadingLastOrder] = useState(false);
   const router = useRouter();
+
+  // Fetch last order when cart is empty
+  useEffect(() => {
+    if (cart.length === 0 && user) {
+      loadLastOrder();
+    } else {
+      setLastOrder(null);
+    }
+  }, [cart.length, user]);
+
+  const loadLastOrder = async () => {
+    try {
+      setLoadingLastOrder(true);
+      const result = await api.orders.getLastOrder();
+      setLastOrder(result.order);
+    } catch (error) {
+      setLastOrder(null);
+    } finally {
+      setLoadingLastOrder(false);
+    }
+  };
+
+  const handleRepeatLastOrder = () => {
+    if (!lastOrder) return;
+    
+    try {
+      for (const pedidoProduto of lastOrder.produtos) {
+        for (let i = 0; i < pedidoProduto.quantidade; i++) {
+          addToCart(pedidoProduto.produto, pedidoProduto.observacao);
+        }
+      }
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível adicionar os itens do último pedido.');
+    }
+  };
 
   const openEdit = (item: PedidoProduto) => {
     setEditing(item);
@@ -37,21 +80,29 @@ export default function CartScreen() {
 
   const total = cart.reduce((sum, i) => sum + i.preco * i.quantidade, 0);
 
-  const handlePlaceOrder = async () => {
+  const handleConfirmOrder = async () => {
     try {
+      setPlacing(true);
       const order = await placeOrder();
+      setShowConfirmModal(false);
       Alert.alert('Pedido realizado!', 'Seu pedido foi enviado com sucesso.');
-      router.push({
+      router.replace({
         pathname: '/order-detail',
         params: { id: order.id },
       });
     } catch (e: any) {
       Alert.alert('Erro', e?.message ?? 'Não foi possível realizar o pedido.');
+    } finally {
+      setPlacing(false);
     }
   };
 
+  const handlePlaceOrder = () => {
+    setShowConfirmModal(true);
+  };
+
   return (
-    <View>
+    <View style={styles.outerContainer}>
       <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -64,7 +115,57 @@ export default function CartScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: cart.length > 0 ? 140 : 32 }}>
         {/* Cart items */}
         {cart.length === 0 ? (
-          <Text style={styles.empty}>Nenhum item no carrinho.</Text>
+          <View>
+            <Text style={styles.empty}>Nenhum item no carrinho.</Text>
+            
+            {/* Repeat Last Order Card */}
+            {lastOrder && (
+              <View style={styles.repeatOrderContainer}>
+                <View style={styles.repeatOrderCard}>
+                  <View style={styles.repeatOrderHeader}>
+                    <View>
+                      <Text style={styles.repeatOrderTitle}>Seu último pedido</Text>
+                      <Text style={styles.repeatOrderDate}>
+                        {new Date(lastOrder.criado_em).toLocaleDateString('pt-BR')}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.repeatOrderProducts}>
+                    {lastOrder.produtos.map((item, idx) => (
+                      <View key={idx} style={styles.repeatOrderItem}>
+                        <View style={styles.repeatOrderItemInfo}>
+                          <Text style={styles.repeatOrderItemName}>{item.produto.nome}</Text>
+                          {item.quantidade > 1 && (
+                            <Text style={styles.repeatOrderItemQty}>x{item.quantidade}</Text>
+                          )}
+                        </View>
+                        <Text style={styles.repeatOrderItemPrice}>
+                          R$ {(item.preco * item.quantidade).toFixed(2)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  <View style={styles.repeatOrderFooter}>
+                    <View>
+                      <Text style={styles.repeatOrderTotal}>Total</Text>
+                      <Text style={styles.repeatOrderTotalPrice}>
+                        R$ {lastOrder.preco_total.toFixed(2)}
+                      </Text>
+                    </View>
+                    <TouchableOpacity 
+                      style={styles.repeatOrderButton}
+                      onPress={handleRepeatLastOrder}
+                    >
+                      <MaterialIcons name="add-shopping-cart" size={20} color="#fff" />
+                      <Text style={styles.repeatOrderButtonText}>Repetir</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
+          </View>
         ) : (
           cart.map(item => (
             <TouchableOpacity key={item.produto.id} style={styles.cartItem} activeOpacity={0.85} onPress={() => openEdit(item)}>
@@ -184,18 +285,31 @@ export default function CartScreen() {
             <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalValue}>R$ {total.toFixed(2).replace('.', ',')}</Text>
           </View>
-          <TouchableOpacity style={styles.placeOrderButton} onPress={handlePlaceOrder}>
+          <TouchableOpacity style={styles.placeOrderButton} onPress={handlePlaceOrder} disabled={placing}>
             <Text style={styles.placeOrderText}>Realizar Pedido</Text>
           </TouchableOpacity>
         </View>
       )}
+
+      <ConfirmModal
+        visible={showConfirmModal}
+        title="Deseja realizar o pedido?"
+        message={`Total: R$ ${total.toFixed(2).replace('.', ',')}\n${cart.length} ${cart.length === 1 ? 'item' : 'itens'} no carrinho`}
+        confirmText="Confirmar"
+        cancelText="Cancelar"
+        onConfirm={handleConfirmOrder}
+        onCancel={() => setShowConfirmModal(false)}
+        loading={placing}
+        confirmColor={ACCENT_COLOR}
+      />
     </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  outerContainer: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1 },
 
   // Header
   header: {
@@ -343,4 +457,105 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   placeOrderText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+
+  // Repeat Last Order
+  repeatOrderContainer: { paddingHorizontal: 16, paddingVertical: 12 },
+  repeatOrderCard: { 
+    backgroundColor: '#F9F9F9', 
+    borderRadius: 12, 
+    borderWidth: 1, 
+    borderColor: '#E0E0E0', 
+    overflow: 'hidden'
+  },
+  repeatOrderHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0'
+  },
+  repeatOrderTitle: { 
+    fontSize: 14, 
+    fontWeight: '700', 
+    color: '#111',
+    marginBottom: 2
+  },
+  repeatOrderDate: { 
+    fontSize: 12, 
+    color: '#999'
+  },
+  repeatOrderProducts: { 
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0'
+  },
+  repeatOrderItem: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+    marginBottom: 2
+  },
+  repeatOrderItemInfo: { 
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6
+  },
+  repeatOrderItemName: { 
+    fontSize: 13, 
+    color: '#333',
+    fontWeight: '500',
+    flex: 1
+  },
+  repeatOrderItemQty: { 
+    fontSize: 12, 
+    color: '#999',
+    backgroundColor: '#EFEFEF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden'
+  },
+  repeatOrderItemPrice: { 
+    fontSize: 12, 
+    fontWeight: '600',
+    color: PRICE_COLOR,
+    marginLeft: 8
+  },
+  repeatOrderFooter: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12
+  },
+  repeatOrderTotal: { 
+    fontSize: 12, 
+    color: '#999',
+    marginBottom: 2
+  },
+  repeatOrderTotalPrice: { 
+    fontSize: 16, 
+    fontWeight: '700',
+    color: PRICE_COLOR
+  },
+  repeatOrderButton: { 
+    backgroundColor: ACCENT_COLOR, 
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    gap: 6
+  },
+  repeatOrderButtonText: { 
+    color: '#fff', 
+    fontSize: 13,
+    fontWeight: '600'
+  },
 });

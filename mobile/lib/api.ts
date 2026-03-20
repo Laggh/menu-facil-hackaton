@@ -97,6 +97,17 @@ const api = {
     /** GET /api/ia/generate?prompt=... — gera texto com IA */
     generate: (prompt: string): Promise<{ generated: string }> =>
       request(`/api/ia/generate?prompt=${encodeURIComponent(prompt)}`),
+
+    /** GET /api/ia/recommendations — retorna recomendações personalizadas para o usuário */
+    getRecommendations: (): Promise<{ recommendations: Produto[], error?: string | null }> =>
+      request('/api/ia/recommendations'),
+
+    /** POST /api/ia/suggest-from-cart — retorna sugestões baseadas no carrinho */
+    suggestFromCart: (cart: PedidoProduto[]): Promise<{ suggestions: Produto[], error?: string | null }> =>
+      request('/api/ia/suggest-from-cart', {
+        method: 'POST',
+        body: JSON.stringify({ cart }),
+      }),
   },
 
   orders: {
@@ -107,6 +118,10 @@ const api = {
     /** GET /api/orders/user — lista pedidos do usuário autenticado */
     getByUser: (): Promise<{ orders: Pedido[]; pendentes: Pedido[]; completos: Pedido[]; cancelados: Pedido[] }> =>
       request('/api/orders/user'),
+
+    /** GET /api/orders/latest — retorna o último pedido do usuário */
+    getLastOrder: (): Promise<{ order: Pedido }> =>
+      request('/api/orders/latest'),
 
     /** GET /api/orders/:id — busca pedido por ID */
     getById: (id: string): Promise<{ order: Pedido }> =>

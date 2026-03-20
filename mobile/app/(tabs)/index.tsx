@@ -160,7 +160,7 @@ export default function HomeScreen() {
   const [lastOrder, setLastOrder] = useState<Pedido | null>(null);
   const [showRepeatOrder, setShowRepeatOrder] = useState(true);
   const sectionListRef = useRef<SectionList>(null);
-  const { addToCart } = useCart();
+  const { addToCart: contextAddToCart } = useCart();
   const { user } = useUser();
 
   // Category chips auto-scroll
@@ -185,14 +185,19 @@ export default function HomeScreen() {
 
   const loadLastOrder = async () => {
     try {
-      const result = await api.orders.getByUser();
-      if (result.completos && result.completos.length > 0) {
-        setLastOrder(result.completos[0]); // Most recent is first
-        setShowRepeatOrder(true);
-      }
+      const result = await api.orders.getLastOrder();
+      setLastOrder(result.order);
+      setShowRepeatOrder(true);
     } catch (error) {
-      console.error('Erro ao carregar último pedido:', error);
+      // No last order found
+      setLastOrder(null);
     }
+  };
+
+  // Wrapper around addToCart to hide repeat order card
+  const addToCart = (produto: Produto, observacao?: string) => {
+    setShowRepeatOrder(false);
+    contextAddToCart(produto, observacao);
   };
 
   // Limpa o estado ao voltar para a home
@@ -267,7 +272,10 @@ export default function HomeScreen() {
       <View style={styles.searchRow}>
         <TouchableOpacity 
           style={styles.searchBox}
-          onPress={() => router.push('/(tabs)/search')}
+          onPress={() => {
+            setShowRepeatOrder(false);
+            router.push('/(tabs)/search');
+          }}
           activeOpacity={0.65}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >

@@ -160,7 +160,7 @@ export default function HomeScreen() {
   const [lastOrder, setLastOrder] = useState<Pedido | null>(null);
   const [showRepeatOrder, setShowRepeatOrder] = useState(true);
   const sectionListRef = useRef<SectionList>(null);
-  const { addToCart: contextAddToCart } = useCart();
+  const { addToCart: contextAddToCart, cart } = useCart();
   const { user } = useUser();
 
   // Category chips auto-scroll
@@ -207,7 +207,11 @@ export default function HomeScreen() {
       if (user) {
         loadLastOrder();
       }
-    }, [user])
+      // Hide repeat order card if cart has items
+      if (cart.length > 0) {
+        setShowRepeatOrder(false);
+      }
+    }, [user, cart.length])
   );
 
   const scrollChipsToShow = (cat: Categoria) => {

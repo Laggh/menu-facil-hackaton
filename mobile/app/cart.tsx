@@ -118,50 +118,40 @@ export default function CartScreen() {
           <View>
             <Text style={styles.empty}>Nenhum item no carrinho.</Text>
             
-            {/* Repeat Last Order Card */}
+            {/* Repeat Last Order */}
             {lastOrder && (
               <View style={styles.repeatOrderContainer}>
-                <View style={styles.repeatOrderCard}>
-                  <View style={styles.repeatOrderHeader}>
-                    <View>
-                      <Text style={styles.repeatOrderTitle}>Seu último pedido</Text>
-                      <Text style={styles.repeatOrderDate}>
-                        {new Date(lastOrder.criado_em).toLocaleDateString('pt-BR')}
-                      </Text>
-                    </View>
-                  </View>
+                <View style={styles.repeatOrderHeader}>
+                  <Text style={styles.repeatOrderTitle}>Repetir último pedido?</Text>
+                </View>
 
-                  <View style={styles.repeatOrderProducts}>
-                    {lastOrder.produtos.map((item, idx) => (
-                      <View key={idx} style={styles.repeatOrderItem}>
-                        <View style={styles.repeatOrderItemInfo}>
-                          <Text style={styles.repeatOrderItemName}>{item.produto.nome}</Text>
-                          {item.quantidade > 1 && (
-                            <Text style={styles.repeatOrderItemQty}>x{item.quantidade}</Text>
-                          )}
-                        </View>
-                        <Text style={styles.repeatOrderItemPrice}>
-                          R$ {(item.preco * item.quantidade).toFixed(2)}
-                        </Text>
+                <View style={styles.repeatOrderProducts}>
+                  {lastOrder.produtos.map((item, idx) => (
+                    <View key={idx} style={styles.repeatOrderItem}>
+                      <View style={styles.repeatOrderItemInfo}>
+                        <Text style={styles.repeatOrderItemName}>{item.produto.nome}</Text>
+                        {item.quantidade > 1 && (
+                          <Text style={styles.repeatOrderItemQty}>x{item.quantidade}</Text>
+                        )}
                       </View>
-                    ))}
-                  </View>
-
-                  <View style={styles.repeatOrderFooter}>
-                    <View>
-                      <Text style={styles.repeatOrderTotal}>Total</Text>
-                      <Text style={styles.repeatOrderTotalPrice}>
-                        R$ {lastOrder.preco_total.toFixed(2)}
+                      <Text style={styles.repeatOrderItemPrice}>
+                        R$ {(item.preco * item.quantidade).toFixed(2)}
                       </Text>
                     </View>
-                    <TouchableOpacity 
-                      style={styles.repeatOrderButton}
-                      onPress={handleRepeatLastOrder}
-                    >
-                      <MaterialIcons name="add-shopping-cart" size={20} color="#fff" />
-                      <Text style={styles.repeatOrderButtonText}>Repetir</Text>
-                    </TouchableOpacity>
-                  </View>
+                  ))}
+                </View>
+
+                <View style={styles.repeatOrderFooter}>
+                  <Text style={styles.repeatOrderTotalPrice}>
+                    Total: R$ {lastOrder.preco_total.toFixed(2)}
+                  </Text>
+                  <TouchableOpacity 
+                    style={styles.repeatOrderButton}
+                    onPress={handleRepeatLastOrder}
+                  >
+                    <MaterialIcons name="add-shopping-cart" size={18} color="#fff" />
+                    <Text style={styles.repeatOrderButtonText}>Repetir</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             )}
@@ -459,45 +449,26 @@ const styles = StyleSheet.create({
   placeOrderText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 
   // Repeat Last Order
-  repeatOrderContainer: { paddingHorizontal: 16, paddingVertical: 12 },
-  repeatOrderCard: { 
-    backgroundColor: '#F9F9F9', 
-    borderRadius: 12, 
-    borderWidth: 1, 
-    borderColor: '#E0E0E0', 
-    overflow: 'hidden'
-  },
+  repeatOrderContainer: { paddingHorizontal: 16, paddingVertical: 16, marginTop: 8 },
   repeatOrderHeader: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0'
+    marginBottom: 12
   },
   repeatOrderTitle: { 
-    fontSize: 14, 
+    fontSize: 16, 
     fontWeight: '700', 
-    color: '#111',
-    marginBottom: 2
-  },
-  repeatOrderDate: { 
-    fontSize: 12, 
-    color: '#999'
+    color: '#111'
   },
   repeatOrderProducts: { 
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0'
+    marginBottom: 12
   },
   repeatOrderItem: { 
     flexDirection: 'row', 
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 6,
-    marginBottom: 2
+    paddingVertical: 8
   },
   repeatOrderItemInfo: { 
     flex: 1,
@@ -530,27 +501,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 12
-  },
-  repeatOrderTotal: { 
-    fontSize: 12, 
-    color: '#999',
-    marginBottom: 2
+    gap: 12
   },
   repeatOrderTotalPrice: { 
-    fontSize: 16, 
+    fontSize: 14, 
     fontWeight: '700',
-    color: PRICE_COLOR
+    color: '#111'
   },
   repeatOrderButton: { 
     backgroundColor: ACCENT_COLOR, 
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
     gap: 6
   },
   repeatOrderButtonText: { 

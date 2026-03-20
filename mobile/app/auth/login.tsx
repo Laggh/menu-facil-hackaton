@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useUser } from '@/context/user-context';
 
-const ACCENT_COLOR = '#6C63FF';
+const ACCENT_COLOR = '#FF9800';
 const PRICE_COLOR = '#00BFA5';
 
 export default function LoginScreen() {

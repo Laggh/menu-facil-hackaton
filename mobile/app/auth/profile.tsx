@@ -14,7 +14,7 @@ import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useUser } from '@/context/user-context';
 
-const ACCENT_COLOR = '#6C63FF';
+const ACCENT_COLOR = '#FF9800';
 const PRICE_COLOR = '#00BFA5';
 
 export default function ProfileScreen() {
@@ -110,23 +110,21 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
-      <View>
-        <View style={styles.safeArea}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <MaterialIcons name="arrow-back" size={24} color="#333" />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <MaterialIcons name="arrow-back" size={24} color="#333" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Perfil</Text>
+        {!isEditing ? (
+          <TouchableOpacity onPress={() => setIsEditing(true)}>
+            <MaterialIcons name="edit" size={24} color={ACCENT_COLOR} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Perfil</Text>
-          {!isEditing ? (
-            <TouchableOpacity onPress={() => setIsEditing(true)}>
-              <MaterialIcons name="edit" size={24} color={ACCENT_COLOR} />
-            </TouchableOpacity>
-          ) : (
-            <View style={{ width: 24 }} />
-          )}
-        </View>
+        ) : (
+          <View style={{ width: 24 }} />
+        )}
+      </View>
 
-        <ScrollView style={styles.content}>
+      <ScrollView style={styles.content}>
           <View style={styles.profileSection}>
             <View style={styles.userIcon}>
               <MaterialIcons name="person" size={56} color="#fff" />
@@ -231,15 +229,12 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           )}
         </ScrollView>
-        </View>
       </View>
-    </View>
-  );
+    );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  safeArea: { flex: 1 },
 
   header: {
     flexDirection: 'row',
@@ -253,6 +248,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '600', color: '#333' },
 
   content: { flex: 1, paddingHorizontal: 24, paddingVertical: 24 },
+  scrollContent: { paddingBottom: 60 },
 
   profileSection: { alignItems: 'center', marginBottom: 32, paddingBottom: 24, borderBottomWidth: 1, borderBottomColor: '#eee' },
   userIcon: {

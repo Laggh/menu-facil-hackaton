@@ -41,13 +41,16 @@ import userRoutes from './user/userRoutes'
 import productRoutes from './user/productRoutes'
 import orderRoutes from './user/orderRoutes'
 import logRoutes from './user/logRoutes'
+import taskRoutes from './user/taskRoutes'
 import uploadRoute from './uploadRoute'
+import { startTaskWorker } from './taskWorker'
 
 // USO DAS ROTAS
 app.use('/api/ia/', aiRoutes()) // Rota para funcionalidades de IA
 app.use('/api/user/', userRoutes()) // Rota para usuários
 app.use('/api/products/', productRoutes()) // Rota para funcionalidades de produtos
 app.use('/api/orders/', orderRoutes()) // Rota para pedidos
+app.use('/api/tasks', taskRoutes()) // Rota para tasks
 app.use('/api/log', logRoutes()) // Rota para logs
 app.use('/api/upload', uploadRoute()) // Rota para upload de imagens
 
@@ -76,4 +79,7 @@ app.get('/', (req: Request, res: Response) => {
 // Iniciar servidor
 app.listen(PORT, () => {
   console.log(`🍔 Servidor rodando na porta ${PORT}`)
+  
+  // Iniciar task worker
+  startTaskWorker()
 })

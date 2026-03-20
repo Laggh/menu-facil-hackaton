@@ -20,7 +20,7 @@ import { useUser } from '@/context/user-context';
 import { ConfirmModal } from '@/components/ConfirmModal';
 
 const PRICE_COLOR = '#00BFA5';
-const ACCENT_COLOR = '#6C63FF';
+const ACCENT_COLOR = '#FF9800';
 
 export default function CartScreen() {
   const { cart, updateQty, removeFromCart, updateObservacao, placeOrder, addToCart, suggestions, loadingSuggestions } = useCart();

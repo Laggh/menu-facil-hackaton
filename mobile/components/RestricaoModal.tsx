@@ -35,8 +35,7 @@ export function RestricaoModal({ visible, restricao, onClose }: RestricaoModalPr
       />
 
       {/* Modal content */}
-      <View>
-        <View style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.modalContent}>
           {/* Header */}
           <View style={styles.header}>
@@ -70,7 +69,6 @@ export function RestricaoModal({ visible, restricao, onClose }: RestricaoModalPr
           >
             <Text style={styles.actionButtonText}>Entendi</Text>
           </TouchableOpacity>
-        </View>
         </View>
       </View>
     </Modal>

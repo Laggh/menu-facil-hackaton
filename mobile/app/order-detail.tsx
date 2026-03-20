@@ -5,7 +5,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import type { Pedido } from '@shared/types';
 import api from '@/lib/api';
 
-const ACCENT_COLOR = '#6C63FF';
+const ACCENT_COLOR = '#FF9800';
 const SUCCESS_COLOR = '#00BFA5';
 const PENDING_COLOR = '#FF9800';
 const CANCELLED_COLOR = '#E53935';
@@ -138,7 +138,9 @@ export default function OrderDetailScreen() {
                     ? 'check-circle'
                     : order.status === 'PENDENTE'
                       ? 'schedule'
-                      : 'cancel'
+                      : order.status === 'ARQUIVADO'
+                        ? 'archive'
+                        : 'cancel'
                 }
                 size={40}
                 color="#fff"
@@ -204,7 +206,7 @@ export default function OrderDetailScreen() {
                   )}
                 </View>
               </View>
-              <Text style={styles.productPriceDetail}>
+              <Text style={[styles.productPriceDetail, { color: getStatusColor(order.status) }]}>
                 R$ {(item.preco * item.quantidade).toFixed(2).replace('.', ',')}
               </Text>
             </View>
@@ -215,7 +217,7 @@ export default function OrderDetailScreen() {
         <View style={styles.totalSection}>
           <Text style={styles.totalTextCompact}>
             Total:{' '}
-            <Text style={styles.totalPriceCompact}>
+            <Text style={[styles.totalPriceCompact, { color: getStatusColor(order.status) }]}>
               R$ {order.preco_total.toFixed(2).replace('.', ',')}
             </Text>
           </Text>

@@ -18,7 +18,7 @@ import { RestricaoModal } from '@/components/RestricaoModal';
 import { RESTRICAO_INFO, type RestricaoKey, type RestricaoInfo } from '@/constants/restricoes';
 
 const PRICE_COLOR = '#00BFA5';
-const ACCENT_COLOR = '#6C63FF';
+const ACCENT_COLOR = '#FF9800';
 
 export default function ProductDetailScreen() {
   const router = useRouter();
@@ -57,7 +57,7 @@ export default function ProductDetailScreen() {
 
   if (loading) {
     return (
-      <View>
+      <View style={styles.outerContainer}>
         <View style={styles.container}>
         <ActivityIndicator style={{ flex: 1 }} size="large" color={ACCENT_COLOR} />
         </View>
@@ -67,7 +67,7 @@ export default function ProductDetailScreen() {
 
   if (!product) {
     return (
-      <View>
+      <View style={styles.outerContainer}>
         <View style={styles.container}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <MaterialIcons name="arrow-back" size={24} color="#111" />
@@ -88,19 +88,18 @@ export default function ProductDetailScreen() {
         onClose={() => setModalVisible(false)}
       />
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
-        {/* Hero image */}
-        {product.imagem_url ? (
-          <Image source={{ uri: product.imagem_url }} style={styles.heroImage} />
-        ) : (
-          <View style={styles.heroImagePlaceholder} />
-        )}
-
-        {/* Back button overlaid on image */}
-        <View>
-        <View style={styles.backOverlay}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <MaterialIcons name="arrow-back" size={22} color="#fff" />
-          </TouchableOpacity>
+        {/* Hero image with back button overlay */}
+        <View style={styles.imageContainer}>
+          {product.imagem_url ? (
+            <Image source={{ uri: product.imagem_url }} style={styles.heroImage} />
+          ) : (
+            <View style={styles.heroImagePlaceholder} />
+          )}
+          <View style={styles.backOverlay}>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+              <MaterialIcons name="arrow-back" size={22} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Content */}
@@ -158,7 +157,6 @@ export default function ProductDetailScreen() {
             />
           </View>
         </View>
-      </View>
       </ScrollView>
 
       {/* Add to cart footer */}
@@ -192,8 +190,10 @@ export default function ProductDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  outerContainer: { flex: 1, backgroundColor: '#fff' },
   container: { flex: 1, backgroundColor: '#fff' },
 
+  imageContainer: { position: 'relative', width: '100%', height: 260 },
   heroImage: { width: '100%', height: 260, backgroundColor: '#eee' },
   heroImagePlaceholder: { width: '100%', height: 260, backgroundColor: '#E0E0E0' },
 

@@ -7,7 +7,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') })
 import { Redis } from '@upstash/redis'
 import { get } from 'http';
 
-import type { Produto, Pedido, GeminiLog, Usuario } from '@shared/types';
+import type { Produto, Pedido, GeminiLog, Usuario, Task } from '@shared/types';
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL,
@@ -82,7 +82,7 @@ export default {
         return newOrder;
       },
 
-      updateStatus: async (id: string, status: 'PENDENTE' | 'COMPLETO' | 'CANCELADO'): Promise<Pedido | null> => {
+      updateStatus: async (id: string, status: 'PENDENTE' | 'COMPLETO' | 'CANCELADO' | 'ARQUIVADO'): Promise<Pedido | null> => {
         const orders = await redis.get("orders") as any[];
         const index = orders?.findIndex((o: any) => o.id === id);
         if (index === -1 || index === undefined) return null;
@@ -146,6 +146,102 @@ export default {
         }
         
         return updatedUser;
+      },
+    },
+
+    task: {
+      create: async (taskType: 'GENERATE_USER_TAG', payload: Record<string, any>): Promise<Task> => {
+        const newTask: Task = {
+          id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          type: taskType,
+          status: 'pending',
+          payload,
+          attempts: 0,
+          maxAttempts: 5,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        
+        // Salvar na fila (usando LPUSH para FIFO)
+        await redis.lpush("task_queue", JSON.stringify(newTask));
+        // Também salvar com chave única para recuperação por ID
+        await redis.set(`task:${newTask.id}`, newTask);
+        
+        return newTask;
+      },
+
+      getNextPending: async (): Promise<Task | null> => {
+        // RPOP pega o último adicionado (FIFO - first in, first out)
+        const taskItem = await redis.rpop("task_queue") as any;
+        if (!taskItem) return null;
+        
+        let task: Task;
+        if (typeof taskItem === 'string') {
+          task = JSON.parse(taskItem);
+        } else {
+          task = taskItem;
+        }
+        
+        // Marcar como processando
+        task.status = 'processing';
+        task.attempts += 1;
+        task.updatedAt = new Date().toISOString();
+        
+        // Atualizar no DB
+        await redis.set(`task:${task.id}`, task);
+        
+        return task;
+      },
+
+      complete: async (id: string): Promise<Task | null> => {
+        const task = await redis.get(`task:${id}`) as Task | null;
+        if (!task) return null;
+        
+        task.status = 'completed';
+        task.completedAt = new Date().toISOString();
+        task.updatedAt = new Date().toISOString();
+        
+        await redis.set(`task:${id}`, task);
+        
+        return task;
+      },
+
+      fail: async (id: string, error: string): Promise<Task | null> => {
+        const task = await redis.get(`task:${id}`) as Task | null;
+        if (!task) return null;
+        
+        task.lastError = error;
+        task.updatedAt = new Date().toISOString();
+        
+        // Se atingiu max attempts, marca como failed. Senão, volta para pending
+        if (task.attempts >= task.maxAttempts) {
+          task.status = 'failed';
+        } else {
+          task.status = 'pending';
+          // Recolocar na fila para tentar depois
+          await redis.lpush("task_queue", JSON.stringify(task));
+        }
+        
+        await redis.set(`task:${id}`, task);
+        
+        return task;
+      },
+
+      getAllPending: async (): Promise<Task[]> => {
+        const queue = await redis.lrange("task_queue", 0, -1) as any[];
+        if (!queue || queue.length === 0) return [];
+        return queue.map(item => {
+          // Se for string, parsear. Se for objeto, retornar direto
+          if (typeof item === 'string') {
+            return JSON.parse(item);
+          }
+          return item;
+        });
+      },
+
+      getById: async (id: string): Promise<Task | null> => {
+        const task = await redis.get(`task:${id}`) as Task | null;
+        return task;
       },
     },
 

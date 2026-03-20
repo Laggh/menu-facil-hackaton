@@ -6,6 +6,8 @@ interface CartContextValue {
   cart: PedidoProduto[];
   suggestions: Produto[];
   loadingSuggestions: boolean;
+  userRecommendations: Produto[];
+  loadingUserRecommendations: boolean;
   addToCart: (produto: Produto, observacao?: string) => void;
   removeFromCart: (produtoId: number) => void;
   updateQty: (produtoId: number, qty: number) => void;
@@ -20,6 +22,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<PedidoProduto[]>([]);
   const [suggestions, setSuggestions] = useState<Produto[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [userRecommendations, setUserRecommendations] = useState<Produto[]>([]);
+  const [loadingUserRecommendations, setLoadingUserRecommendations] = useState(false);
 
   // Função para buscar sugestões de forma assíncrona
   const fetchSuggestions = async (currentCart: PedidoProduto[]) => {
@@ -39,6 +43,25 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       setLoadingSuggestions(false);
     }
   };
+
+  // Função para buscar recomendações do usuário
+  const fetchUserRecommendations = async () => {
+    try {
+      setLoadingUserRecommendations(true);
+      const result = await api.ai.getRecommendations();
+      setUserRecommendations(result.recommendations || []);
+    } catch (error) {
+      console.error('Erro ao buscar recomendações do usuário:', error);
+      setUserRecommendations([]);
+    } finally {
+      setLoadingUserRecommendations(false);
+    }
+  };
+
+  // Buscar recomendações do usuário na inicialização
+  useEffect(() => {
+    fetchUserRecommendations();
+  }, []);
 
   // useEffect para buscar sugestões sempre que o carrinho mudar
   useEffect(() => {
@@ -110,11 +133,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (cart.length === 0) throw new Error('Carrinho vazio');
     const result = await api.orders.create(cart);
     clearCart();
+    // Recarregar recomendações do usuário após realizar o pedido
+    await fetchUserRecommendations();
     return result.order;
   };
 
   return (
-    <CartContext.Provider value={{ cart, suggestions, loadingSuggestions, addToCart, removeFromCart, updateQty, updateObservacao, clearCart, placeOrder }}>
+    <CartContext.Provider value={{ cart, suggestions, loadingSuggestions, userRecommendations, loadingUserRecommendations, addToCart, removeFromCart, updateQty, updateObservacao, clearCart, placeOrder }}>
       {children}
     </CartContext.Provider>
   );

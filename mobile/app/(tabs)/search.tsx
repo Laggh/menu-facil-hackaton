@@ -13,9 +13,10 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import type { Produto } from '@shared/types';
 import api from '@/lib/api';
+import { useCart } from '@/context/cart-context';
 
 const PRICE_COLOR = '#00BFA5';
-const ACCENT_COLOR = '#6C63FF';
+const ACCENT_COLOR = '#FF9800';
 
 function ProductCard({ product }: { product: Produto }) {
   const router = useRouter();
@@ -47,6 +48,7 @@ function ProductCard({ product }: { product: Produto }) {
 export default function SearchScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { userRecommendations, loadingUserRecommendations } = useCart();
   const [searchQuery, setSearchQuery] = useState(params.q ? String(params.q) : '');
   const [results, setResults] = useState<Produto[]>([]);
   const [loading, setLoading] = useState(false);
@@ -116,7 +118,7 @@ export default function SearchScreen() {
   };
 
   return (
-    <View>
+    <View style={styles.outerContainer}>
       <View style={styles.container}>
       <View style={styles.header}>
       {/* Header with search bar */}
@@ -159,7 +161,25 @@ export default function SearchScreen() {
       </View>
 
       {/* Results or empty state */}
-      {!hasSearched ? (
+      {!hasSearched ? userRecommendations.length > 0 ? (
+        <View style={styles.recommendationsContainer}>
+          <View style={styles.recommendationsHeader}>
+            <Text style={styles.recommendationsTitle}>Sugestões</Text>
+          </View>
+          <FlatList
+            data={userRecommendations}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item }) => <ProductCard product={item} />}
+            contentContainerStyle={styles.listContent}
+            scrollIndicatorInsets={{ right: 1 }}
+          />
+        </View>
+      ) : loadingUserRecommendations ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={ACCENT_COLOR} />
+          <Text style={styles.loadingText}>Carregando sugestões...</Text>
+        </View>
+      ) : (
         <View style={styles.emptyContainer}>
           <MaterialIcons name="search" size={64} color="#ddd" />
           <Text style={styles.emptyText}>
@@ -199,9 +219,12 @@ export default function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  outerContainer: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  container: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -247,6 +270,19 @@ const styles = StyleSheet.create({
     padding: 8,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  recommendationsContainer: {
+    flex: 1,
+  },
+  recommendationsHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  recommendationsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
   },
   emptyContainer: {
     flex: 1,

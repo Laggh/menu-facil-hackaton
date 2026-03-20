@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import type { Pedido } from '@shared/types';
 import api from '@/lib/api';
 
-const ACCENT_COLOR = '#6C63FF';
+const ACCENT_COLOR = '#FF9800';
 const SUCCESS_COLOR = '#00BFA5';
 const PENDING_COLOR = '#FF9800';
 const CANCELLED_COLOR = '#E53935';
@@ -184,7 +184,7 @@ export default function OrdersScreen() {
 
       <View style={styles.tabContainer}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'pending' && styles.tabActive]}
+          style={[styles.tab, activeTab === 'pending' && { backgroundColor: PENDING_COLOR }]}
           onPress={() => setActiveTab('pending')}
         >
           <Text
@@ -197,7 +197,7 @@ export default function OrdersScreen() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'completed' && styles.tabActive]}
+          style={[styles.tab, activeTab === 'completed' && { backgroundColor: '#4CAF50' }]}
           onPress={() => setActiveTab('completed')}
         >
           <Text
@@ -210,7 +210,7 @@ export default function OrdersScreen() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'cancelled' && styles.tabActive]}
+          style={[styles.tab, activeTab === 'cancelled' && { backgroundColor: CANCELLED_COLOR }]}
           onPress={() => setActiveTab('cancelled')}
         >
           <Text
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
   productSubtotal: {
     fontSize: 14,
     fontWeight: '700',
-    color: ACCENT_COLOR,
+    color: PENDING_COLOR,
     minWidth: 80,
     textAlign: 'right',
   },
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
   totalPriceLarge: {
     fontSize: 18,
     fontWeight: '700',
-    color: ACCENT_COLOR,
+    color: PENDING_COLOR,
   },
   completedAtLarge: {
     fontSize: 12,

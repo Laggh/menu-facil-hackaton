@@ -84,9 +84,13 @@ export function ProductModal({ product, onClose, onSave }: Props) {
       const { data } = await api.products.generateDescription(form.nome, form.definicao || '');
       applyAiData(data);
       setNeedsDefinicao(false);
-    } catch {
-      setNeedsDefinicao(true);
-      setError('A IA precisa de mais detalhes sobre esse produto. Preencha o campo "Definição" e tente novamente.');
+    } catch (err: any) {
+      if (err.message && (err.message.includes('Informações insuficientes') || err.message.includes('A IA precisa de mais detalhes'))) {
+        setNeedsDefinicao(true);
+        setError('A IA precisa de mais detalhes sobre esse produto. Preencha o campo "Definição" e tente novamente.');
+      } else {
+        setError(err.message || 'Ocorreu um erro ao gerar a descrição. Tente novamente mais tarde.');
+      }
     } finally {
       setAiLoading(false);
     }

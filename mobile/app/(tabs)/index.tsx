@@ -22,7 +22,7 @@ import { useCart } from '@/context/cart-context';
 import { useUser } from '@/context/user-context';
 
 const PRICE_COLOR = '#00BFA5';
-const ACCENT_COLOR = '#6C63FF';
+const ACCENT_COLOR = '#FF9800';
 
 const CATEGORIAS: { key: Categoria; label: string; sectionLabel: string }[] = [
   { key: 'PRATO_PRINCIPAL',  label: 'Pratos',           sectionLabel: 'Pratos Principais' },

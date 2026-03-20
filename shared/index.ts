@@ -154,7 +154,7 @@ export const ProdutoSchema = z.object({
 
 // ─── Pedido ─────────────────────────────────────────────────────────────────
 
-export type StatusPedido = 'PENDENTE' | 'COMPLETO' | 'CANCELADO';
+export type StatusPedido = 'PENDENTE' | 'COMPLETO' | 'CANCELADO' | 'ARQUIVADO';
 
 export interface PedidoProduto {
     produto: Produto;
@@ -185,7 +185,7 @@ export const PedidoSchema = z.object({
     id: z.string(),
     usuarioId: z.string(),
     produtos: z.array(PedidoProdutoSchema),
-    status: z.enum(['PENDENTE', 'COMPLETO', 'CANCELADO']),
+    status: z.enum(['PENDENTE', 'COMPLETO', 'CANCELADO', 'ARQUIVADO']),
     horario: z.string(),
     preco_total: z.number().positive(),
     criado_em: z.string(),
@@ -196,14 +196,53 @@ export const PedidoSchema = z.object({
 export interface GeminiLog {
     prompt: string;
     timeMs: number;
-    response: string;
+    response?: string;
     model: string;
+    timestamp?: string;
+    status: 'success' | 'error';
+    errorCode?: string;
+    errorMessage?: string;
+    usedFallback?: boolean;  // true = tentou modelo normal, deu erro, usou lite
 }
 
 export const GeminiLogSchema = z.object({
     prompt: z.string(),
     timeMs: z.number(),
-    response: z.string(),
+    response: z.string().optional(),
     model: z.string(),
+    timestamp: z.string().optional(),
+    status: z.enum(['success', 'error']),
+    errorCode: z.string().optional(),
+    errorMessage: z.string().optional(),
+    usedFallback: z.boolean().optional(),
+});
+
+// ─── Tasks (Fila de Ações para Executar Depois) ────────────────────────────
+export type TaskType = 'GENERATE_USER_TAG';
+
+export interface Task {
+    id: string;
+    type: TaskType;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    payload: Record<string, any>;
+    attempts: number;
+    maxAttempts: number;
+    lastError?: string;
+    createdAt: string;
+    updatedAt: string;
+    completedAt?: string;
+}
+
+export const TaskSchema = z.object({
+    id: z.string().uuid(),
+    type: z.enum(['GENERATE_USER_TAG']),
+    status: z.enum(['pending', 'processing', 'completed', 'failed']),
+    payload: z.record(z.string(), z.any()),
+    attempts: z.number().min(0),
+    maxAttempts: z.number().positive(),
+    lastError: z.string().optional(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+    completedAt: z.string().optional(),
 });
 

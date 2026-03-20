@@ -6,11 +6,17 @@ export function PedidosTab() {
   const [pendentes, setPendentes] = useState<Pedido[]>([]);
   const [completos, setCompletos] = useState<Pedido[]>([]);
   const [cancelados, setCancelados] = useState<Pedido[]>([]);
+  const [arquivados, setArquivados] = useState<Pedido[]>([]);
   const [usuarios, setUsuarios] = useState<Record<string, Usuario>>({});
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [showArchived, setShowArchived] = useState(false);
+  const [atualizandoPedidoId, setAtualizandoPedidoId] = useState<string | null>(null);
+
+  const [archiveModalData, setArchiveModalData] = useState<{ status: StatusPedido, orders: Pedido[] } | null>(null);
+  const [isArchivingAll, setIsArchivingAll] = useState(false);
 
   const loadData = useCallback(async (isBackground: boolean = false) => {
     try {
@@ -28,6 +34,7 @@ export function PedidosTab() {
       setPendentes((ordersRes.pendentes || []).sort(sortByRecency));
       setCompletos((ordersRes.completos || []).sort(sortByRecency));
       setCancelados((ordersRes.cancelados || []).sort(sortByRecency));
+      setArquivados((ordersRes.arquivados || []).sort(sortByRecency));
 
       const userMap = (usersRes.users || []).reduce((acc: Record<string, Usuario>, u) => {
         acc[u.id] = u;
@@ -60,10 +67,40 @@ export function PedidosTab() {
 
   const handleStatusChange = async (pedidoId: string, novoStatus: StatusPedido) => {
     try {
+      setAtualizandoPedidoId(pedidoId);
       await api.orders.updateStatus(pedidoId, novoStatus);
-      loadData(true);
+      await loadData(true);
     } catch (err) {
       alert('Erro ao atualizar status: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setAtualizandoPedidoId(null);
+    }
+  };
+
+  const handleArchive = async (pedidoId: string) => {
+    try {
+      await api.orders.archive(pedidoId);
+      loadData(true);
+    } catch (err) {
+      alert('Erro ao arquivar: ' + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  const handleArchiveAllClick = (status: StatusPedido, ordersToArchive: Pedido[]) => {
+    setArchiveModalData({ status, orders: ordersToArchive });
+  };
+
+  const confirmArchiveAll = async () => {
+    if (!archiveModalData) return;
+    setIsArchivingAll(true);
+    try {
+      await Promise.all(archiveModalData.orders.map(o => api.orders.archive(o.id)));
+      await loadData(true);
+      setArchiveModalData(null);
+    } catch (err) {
+      alert('Erro ao arquivar alguns pedidos: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setIsArchivingAll(false);
     }
   };
 
@@ -74,11 +111,22 @@ export function PedidosTab() {
           {status === 'PENDENTE' && <div className="w-2 h-2 rounded-full bg-orange-400"></div>}
           {status === 'COMPLETO' && <div className="w-2 h-2 rounded-full bg-green-500"></div>}
           {status === 'CANCELADO' && <div className="w-2 h-2 rounded-full bg-red-500"></div>}
+          {status === 'ARQUIVADO' && <div className="w-2 h-2 rounded-full bg-blue-500"></div>}
           {title}
         </h3>
-        <span className="bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full text-xs font-bold">
-          {orders.length}
-        </span>
+        <div className="flex items-center gap-2">
+          {(status === 'COMPLETO' || status === 'CANCELADO') && orders.length > 0 && (
+            <button 
+              onClick={() => handleArchiveAllClick(status, orders)} 
+              className="text-[10px] uppercase font-bold text-gray-500 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 border border-gray-200 px-2 py-1 rounded transition-colors flex items-center gap-1 leading-none h-fit"
+            >
+              Arquivar Todos
+            </button>
+          )}
+          <span className="bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full text-xs font-bold shrink-0">
+            {orders.length}
+          </span>
+        </div>
       </div>
       <div className="flex-1 p-4 overflow-y-auto space-y-4 shadow-inner bg-gray-50/50">
         {orders.map(o => (
@@ -118,21 +166,49 @@ export function PedidosTab() {
                {status === 'PENDENTE' && (
                  <>
                    <button onClick={() => handleStatusChange(o.id, 'CANCELADO')} className="px-3 py-1.5 text-xs font-semibold text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">Cancelar</button>
-                   <button onClick={() => handleStatusChange(o.id, 'COMPLETO')} className="px-3 py-1.5 text-xs font-semibold bg-green-500 text-white hover:bg-green-600 rounded-lg transition-colors shadow-sm flex items-center gap-1.5">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                   <button 
+                    disabled={atualizandoPedidoId === o.id}
+                    onClick={() => handleStatusChange(o.id, 'COMPLETO')} 
+                    className={`px-3 py-1.5 text-xs font-semibold bg-green-500 text-white rounded-lg transition-colors shadow-sm flex items-center gap-1.5 ${atualizandoPedidoId === o.id ? 'opacity-70 cursor-not-allowed' : 'hover:bg-green-600'}`}>
+                    {atualizandoPedidoId === o.id ? (
+                      <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : (
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                    )}
                     Entregar
                    </button>
                  </>
                )}
                {status === 'COMPLETO' && (
-                 <span className="text-xs font-bold text-green-600 bg-green-50 border border-green-100 px-2.5 py-1 rounded-md flex items-center gap-1">
-                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                   Finalizado
-                 </span>
+                 <>
+                   <span className="text-xs font-bold text-green-600 bg-green-50 border border-green-100 px-2.5 py-1 rounded-md flex items-center gap-1">
+                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                     Finalizado
+                   </span>
+                   <button onClick={() => handleArchive(o.id)} className="text-xs font-semibold text-gray-500 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 border border-gray-200 px-2.5 py-1.5 rounded-lg transition-colors ml-auto flex items-center gap-1" title="Arquivar">
+                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                     Arquivar
+                   </button>
+                 </>
                )}
                {status === 'CANCELADO' && (
-                 <button onClick={() => handleStatusChange(o.id, 'PENDENTE')} className="text-xs font-semibold text-gray-500 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 border border-gray-200 px-2.5 py-1.5 rounded-lg transition-colors">
-                   Desfazer Cancelamento
+                 <>
+                   <button onClick={() => handleStatusChange(o.id, 'PENDENTE')} className="text-xs font-semibold text-gray-500 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 border border-gray-200 px-2.5 py-1.5 rounded-lg transition-colors">
+                     Desfazer Cancelamento
+                   </button>
+                   <button onClick={() => handleArchive(o.id)} className="text-xs font-semibold text-gray-500 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 border border-gray-200 px-2.5 py-1.5 rounded-lg transition-colors ml-auto flex items-center gap-1" title="Arquivar">
+                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                     Arquivar
+                   </button>
+                 </>
+               )}
+               {status === 'ARQUIVADO' && (
+                 <button onClick={() => handleStatusChange(o.id, 'COMPLETO')} className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 border border-blue-100 hover:border-blue-200 px-2.5 py-1 rounded-md flex items-center gap-1.5 ml-auto transition-colors cursor-pointer" title="Desarquivar pedido">
+                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                   Desarquivar
                  </button>
                )}
              </div>
@@ -165,6 +241,15 @@ export function PedidosTab() {
             Atualização Automática (5s)
           </label>
           <button
+            onClick={() => setShowArchived(prev => !prev)}
+            className={`flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-medium transition-all shadow-sm active:scale-95 ${showArchived ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+            </svg>
+            {showArchived ? 'Ocultar Arquivados' : 'Ver Arquivados'}
+          </button>
+          <button
             onClick={() => loadData(false)}
             className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-all shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={loading}
@@ -187,12 +272,56 @@ export function PedidosTab() {
           </div>
         ) : (
           <div className="flex gap-6 h-full min-w-max">
-            <Column title="Pendentes / Em Preparo" status="PENDENTE" orders={pendentes} />
-            <Column title="Prontos" status="COMPLETO" orders={completos} />
-            <Column title="Cancelados" status="CANCELADO" orders={cancelados} />
+            {!showArchived ? (
+              <>
+                <Column title="Pendentes / Em Preparo" status="PENDENTE" orders={pendentes} />
+                <Column title="Prontos" status="COMPLETO" orders={completos} />
+                <Column title="Cancelados" status="CANCELADO" orders={cancelados} />
+              </>
+            ) : (
+              <Column title="Histórico Arquivado" status="ARQUIVADO" orders={arquivados} />
+            )}
           </div>
         )}
       </main>
-    </div>
+      {/* Archive All Modal */}
+      {archiveModalData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Arquivar Pedidos</h3>
+              <p className="text-gray-600 text-sm">
+                Tem certeza que deseja mover todos os <strong>{archiveModalData.orders.length} pedidos</strong> retornados para o histórico de arquivados?
+              </p>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 flex justify-end gap-3 border-t border-gray-100">
+              <button 
+                onClick={() => setArchiveModalData(null)}
+                disabled={isArchivingAll}
+                className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={confirmArchiveAll}
+                disabled={isArchivingAll}
+                className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {isArchivingAll ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Arquivando...
+                  </>
+                ) : (
+                  'Confirmar'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}    </div>
   );
 }

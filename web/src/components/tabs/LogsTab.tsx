@@ -2,6 +2,25 @@ import { useState, useEffect, useCallback } from 'react';
 import type { GeminiLog } from '@shared/types';
 import api from '../../lib/api';
 
+function getRelativeTime(dateString: string | undefined): string {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return '';
+  
+  const diffMs = date.getTime() - Date.now();
+  const diffSec = Math.round(diffMs / 1000);
+  const diffMin = Math.round(diffSec / 60);
+  const diffHour = Math.round(diffMin / 60);
+  const diffDay = Math.round(diffHour / 24);
+
+  if (Math.abs(diffSec) < 60) return 'agora mesmo';
+  
+  const rtf = new Intl.RelativeTimeFormat('pt-BR', { numeric: 'auto' });
+  if (Math.abs(diffMin) < 60) return rtf.format(diffMin, 'minute');
+  if (Math.abs(diffHour) < 24) return rtf.format(diffHour, 'hour');
+  return rtf.format(diffDay, 'day');
+}
+
 export function LogsTab() {
   const [logs, setLogs] = useState<(GeminiLog & { raw?: string })[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
@@ -94,17 +113,44 @@ export function LogsTab() {
           ) : (
             <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
               {logs.map((log, index) => (
-                <div key={index} className="bg-gray-50 border border-gray-200 rounded-xl overflow-hidden text-sm transition-all duration-200">
+                <div key={index} className="bg-gray-50 border border-gray-200 rounded-xl text-sm transition-all duration-200">
                   <button
                     onClick={() => setExpandedLogId(expandedLogId === index ? null : index)}
-                    className="w-full flex justify-between items-center p-4 hover:bg-gray-100 transition-colors"
+                    className={`w-full flex justify-between items-center p-4 hover:bg-gray-100 transition-colors ${expandedLogId === index ? 'rounded-t-xl' : 'rounded-xl'}`}
                   >
                     <div className="flex items-center gap-2">
                       <div className="font-semibold text-gray-700">Requisição {logs.length - index}</div>
-                      {log.model && typeof log.model === 'string' && log.model.includes('2.5') && log.model.includes('flash') && (
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-yellow-500">
-                          <path fillRule="evenodd" d="M14.615 1.595a.75.75 0 01.359.852L12.982 9.75h7.268a.75.75 0 01.548 1.262l-10.5 11.25a.75.75 0 01-1.272-.71l1.992-7.302H3.75a.75.75 0 01-.548-1.262l10.5-11.25a.75.75 0 01.913-.143z" clipRule="evenodd" />
-                        </svg>
+                        {log.usedFallback ? (
+                          <div className="group relative flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 text-orange-500 cursor-pointer">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+                            </svg>
+                            <div className="absolute flex items-center left-full top-1/2 -translate-y-1/2 ml-2 w-max px-3 py-2 bg-gray-900 text-white text-xs text-center rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none shadow-xl">
+                              <span className="font-semibold whitespace-nowrap">Usou modelo de fallback (Secundário)</span>
+                              <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+                            </div>
+                          </div>
+                        ) : log.model && typeof log.model === 'string' && log.model.includes('2.5') && log.model.includes('flash') ? (
+                          <div className="group relative flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-yellow-500 cursor-pointer">
+                              <path fillRule="evenodd" d="M14.615 1.595a.75.75 0 01.359.852L12.982 9.75h7.268a.75.75 0 01.548 1.262l-10.5 11.25a.75.75 0 01-1.272-.71l1.992-7.302H3.75a.75.75 0 01-.548-1.262l10.5-11.25a.75.75 0 01.913-.143z" clipRule="evenodd" />
+                            </svg>
+                            <div className="absolute flex items-center left-full top-1/2 -translate-y-1/2 ml-2 w-max px-3 py-2 bg-gray-900 text-white text-xs text-center rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none shadow-xl">
+                              <span className="font-semibold whitespace-nowrap">Modelo Rápido (Flash)</span>
+                              <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+                            </div>
+                          </div>
+                        ) : null}
+                      {log.status === 'error' && (
+                        <div className="group relative flex items-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 text-red-500 cursor-pointer">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          <div className="absolute flex items-center left-full top-1/2 -translate-y-1/2 ml-2 w-max px-3 py-2 bg-gray-900 text-white text-xs text-center rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none shadow-xl">
+                            <span className="font-semibold whitespace-nowrap">Erro na Integração</span>
+                            <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+                          </div>
+                        </div>
                       )}
                       <div className={`p-1 rounded-full transition-transform ${expandedLogId === index ? 'rotate-180' : ''}`}>
                         <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -113,17 +159,34 @@ export function LogsTab() {
                       </div>
                     </div>
                     <div className="text-xs text-gray-400 font-mono text-right">
-                      {log.timeMs && `${log.timeMs}ms`}
+                      {log.timestamp ? `${getRelativeTime(log.timestamp)} • ` : ''}{log.timeMs && `${log.timeMs}ms`}
                     </div>
                   </button>
 
                   {expandedLogId === index && (
-                    <div className="p-4 border-t border-gray-200 bg-white">
+                    <div className="p-4 border-t border-gray-200 bg-white rounded-b-xl">
                       {log.model && (
-                        <div className="mb-4 text-xs font-medium text-gray-500">
-                          Modelo: <span className="text-gray-900 font-mono ml-1 bg-gray-100 px-2 py-1 rounded">{log.model}</span>
+                          <div className="mb-4 text-xs font-medium text-gray-500 flex items-center">
+                            Modelo: <span className="text-gray-900 font-mono ml-1 bg-gray-100 px-2 py-1 rounded">{log.model}</span>
+                            {log.usedFallback && (
+                              <span className="ml-2 bg-orange-100 text-orange-700 px-2 py-0.5 rounded font-bold text-[10px] uppercase tracking-wider border border-orange-200" title="Requisição original falhou, modelo de emergência ativado">
+                                🔥 Fallback
+                              </span>
+                            )}
+                          </div>
+                      )}
+                      
+                      {log.status === 'error' && (
+                        <div className="mb-4 bg-red-50 border border-red-200 p-3 rounded-lg">
+                          <div className="text-xs font-bold text-red-700 uppercase tracking-wider mb-1">
+                            Erro {log.errorCode ? `(${log.errorCode})` : ''}
+                          </div>
+                          <div className="text-sm text-red-600 font-medium">
+                            {log.errorMessage || 'Ocorreu um erro desconhecido.'}
+                          </div>
                         </div>
                       )}
+
                       {log.prompt && (
                         <div className="mt-3">
                           <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Prompt / Mensagens</div>
@@ -163,3 +226,4 @@ export function LogsTab() {
     </>
   );
 }
+

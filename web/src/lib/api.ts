@@ -1,6 +1,15 @@
-import type { Produto, Restricao, GeminiLog, Usuario, Pedido, StatusPedido } from '@shared/types';
+import type { Produto, Restricao, GeminiLog, Usuario, Pedido, StatusPedido, PedidoProduto, Task } from '@shared/types';
 
 const BASE_URL = 'http://localhost:3000';
+
+// Função auxiliar para obter user ID do localStorage (ou de onde estiver armazenado)
+function getUserId(): string | null {
+  try {
+    return localStorage.getItem('userId');
+  } catch {
+    return null;
+  }
+}
 
 async function uploadImage(file: File): Promise<{ url: string }> {
   const formData = new FormData();
@@ -18,6 +27,27 @@ async function uploadImage(file: File): Promise<{ url: string }> {
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, options);
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(body?.error ?? res.statusText);
+  }
+
+  return res.json() as Promise<T>;
+}
+
+// Request com suporte a headers customizados (para x-user-id)
+async function requestWithHeaders<T>(path: string, options?: RequestInit & { headers?: Record<string, string> }): Promise<T> {
+  const headers = options?.headers || {};
+  const userId = getUserId();
+  if (userId) {
+    headers['x-user-id'] = userId;
+  }
+
+  const res = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers,
+  });
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
@@ -77,6 +107,18 @@ const api = {
     /** GET /api/ia/generate?prompt=... — gera texto com IA */
     generate: (prompt: string): Promise<{ generated: string }> =>
       request(`/api/ia/generate?prompt=${encodeURIComponent(prompt)}`),
+
+    /** GET /api/ia/recommendations — retorna recomendações personalizadas para o usuário */
+    getRecommendations: (): Promise<{ recommendations: Produto[], error?: string | null }> =>
+      requestWithHeaders('/api/ia/recommendations'),
+
+    /** POST /api/ia/suggest-from-cart — retorna sugestões baseadas no carrinho */
+    suggestFromCart: (cart: PedidoProduto[]): Promise<{ suggestions: Produto[], error?: string | null }> =>
+      requestWithHeaders('/api/ia/suggest-from-cart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cart }),
+      }),
   },
 
   logs: {
@@ -90,9 +132,15 @@ const api = {
     getAll: (): Promise<{ users: Usuario[] }> => request('/api/user'),
   },
 
+  tasks: {
+    /** GET /api/tasks — retorna as tasks do servidor */
+    getAll: (): Promise<{ total: number, pending: number, completed: number, failed: number, tasks: Task[] }> => 
+      request(`/api/tasks?_t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } }),
+  },
+
   orders: {
     /** GET /api/orders — retorna todos os pedidos */
-    getAll: (): Promise<{ orders: Pedido[], pendentes: Pedido[], completos: Pedido[], cancelados: Pedido[] }> => 
+    getAll: (): Promise<{ orders: Pedido[], pendentes: Pedido[], completos: Pedido[], cancelados: Pedido[], arquivados: Pedido[] }> => 
       request('/api/orders'),
 
     /** PUT /api/orders/:id/status — atualiza o status de um pedido */
@@ -101,6 +149,13 @@ const api = {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
+      }),
+
+    /** PUT /api/orders/:id/archive — arquiva um pedido */
+    archive: (id: string): Promise<{ order: Pedido }> =>
+      request(`/api/orders/${id}/archive`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' }
       }),
   },
 

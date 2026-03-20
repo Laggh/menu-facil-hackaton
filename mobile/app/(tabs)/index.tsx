@@ -158,8 +158,9 @@ export default function HomeScreen() {
   const [activeCategory, setActiveCategory] = useState<Categoria>('PRATO_PRINCIPAL');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [lastOrder, setLastOrder] = useState<Pedido | null>(null);
-  const [showRepeatOrder, setShowRepeatOrder] = useState(true);
+  const [showRepeatOrder, setShowRepeatOrder] = useState(false);
   const sectionListRef = useRef<SectionList>(null);
+  const hasShownRepeatOrderThisSession = useRef(false);
   const { addToCart: contextAddToCart, cart } = useCart();
   const { user } = useUser();
 
@@ -187,7 +188,11 @@ export default function HomeScreen() {
     try {
       const result = await api.orders.getLastOrder();
       setLastOrder(result.order);
-      setShowRepeatOrder(true);
+      // Only show card on first load of this session
+      if (!hasShownRepeatOrderThisSession.current) {
+        setShowRepeatOrder(true);
+        hasShownRepeatOrderThisSession.current = true;
+      }
     } catch (error) {
       // No last order found
       setLastOrder(null);
@@ -200,18 +205,14 @@ export default function HomeScreen() {
     contextAddToCart(produto, observacao);
   };
 
-  // Limpa o estado ao voltar para a home
+  // Show/hide repeat order based on cart
   useFocusEffect(
     useCallback(() => {
-      // Reload last order when screen comes into focus
-      if (user) {
-        loadLastOrder();
-      }
       // Hide repeat order card if cart has items
       if (cart.length > 0) {
         setShowRepeatOrder(false);
       }
-    }, [user, cart.length])
+    }, [cart.length])
   );
 
   const scrollChipsToShow = (cat: Categoria) => {

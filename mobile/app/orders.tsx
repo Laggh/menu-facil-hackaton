@@ -9,11 +9,13 @@ const ACCENT_COLOR = '#6C63FF';
 const SUCCESS_COLOR = '#00BFA5';
 const PENDING_COLOR = '#FF9800';
 const CANCELLED_COLOR = '#E53935';
+const ARCHIVED_COLOR = '#2196F3';
 
 export default function OrdersScreen() {
   const [loading, setLoading] = useState(true);
   const [pendentes, setPendentes] = useState<Pedido[]>([]);
   const [completos, setCompletos] = useState<Pedido[]>([]);
+  const [arquivados, setArquivados] = useState<Pedido[]>([]);
   const [cancelados, setCancelados] = useState<Pedido[]>([]);
   const [activeTab, setActiveTab] = useState<'pending' | 'completed' | 'cancelled'>('pending');
   const router = useRouter();
@@ -35,6 +37,7 @@ export default function OrdersScreen() {
       const result = await api.orders.getByUser();
       setPendentes(result.pendentes || []);
       setCompletos(result.completos || []);
+      setArquivados(result.arquivados || []);
       setCancelados(result.cancelados || []);
     } catch (error) {
       console.error('Erro ao carregar pedidos:', error);
@@ -48,6 +51,7 @@ export default function OrdersScreen() {
       const result = await api.orders.getByUser();
       setPendentes(result.pendentes || []);
       setCompletos(result.completos || []);
+      setArquivados(result.arquivados || []);
       setCancelados(result.cancelados || []);
     } catch (error) {
       console.error('Erro ao refetch pedidos:', error);
@@ -60,6 +64,8 @@ export default function OrdersScreen() {
         return PENDING_COLOR;
       case 'COMPLETO':
         return SUCCESS_COLOR;
+      case 'ARQUIVADO':
+        return ARCHIVED_COLOR;
       case 'CANCELADO':
         return CANCELLED_COLOR;
       default:
@@ -73,6 +79,8 @@ export default function OrdersScreen() {
         return 'Em Preparação';
       case 'COMPLETO':
         return 'Pronto para Retirada';
+      case 'ARQUIVADO':
+        return 'Arquivado';
       case 'CANCELADO':
         return 'Cancelado';
       default:
@@ -151,7 +159,7 @@ export default function OrdersScreen() {
   );
 
   const currentOrders =
-    activeTab === 'pending' ? pendentes : activeTab === 'completed' ? completos : cancelados;
+    activeTab === 'pending' ? pendentes : activeTab === 'completed' ? [...completos, ...arquivados] : cancelados;
 
   return (
     <View style={styles.outerContainer}>
@@ -187,7 +195,7 @@ export default function OrdersScreen() {
               activeTab === 'completed' && styles.tabLabelActive,
             ]}
           >
-            Prontos ({completos.length})
+            Prontos ({completos.length + arquivados.length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity

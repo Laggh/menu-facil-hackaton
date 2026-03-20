@@ -116,7 +116,7 @@ const api = {
       request('/api/orders'),
 
     /** GET /api/orders/user — lista pedidos do usuário autenticado */
-    getByUser: (): Promise<{ orders: Pedido[]; pendentes: Pedido[]; completos: Pedido[]; cancelados: Pedido[] }> =>
+    getByUser: (): Promise<{ orders: Pedido[]; pendentes: Pedido[]; completos: Pedido[]; arquivados: Pedido[]; cancelados: Pedido[] }> =>
       request('/api/orders/user'),
 
     /** GET /api/orders/latest — retorna o último pedido do usuário */

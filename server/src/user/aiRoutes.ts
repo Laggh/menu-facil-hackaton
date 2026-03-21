@@ -15,7 +15,7 @@ export default () => {
         const hasApiKey = !!process.env.GOOGLE_API_KEY || !!process.env.GEMINI_API_KEY;
         res.json({ 
             message: "Rota de IA funcionando!",
-            apiKey: process.env.GOOGLE_API_KEY ?? process.env.GEMINI_API_KEY,
+            //apiKey: process.env.GOOGLE_API_KEY ?? process.env.GEMINI_API_KEY,
             apiKeyConfigured: hasApiKey
         });
     });

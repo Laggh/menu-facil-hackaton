@@ -1,52 +1,152 @@
-import { useState, useEffect, useCallback } from 'react';
-import type { Pedido, StatusPedido, Usuario } from '@shared/types';
-import api from '../../lib/api';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import type { Pedido, Produto, StatusPedido, Usuario } from '@shared/types';
+
+const DEMO_USERS: Record<string, Usuario> = {
+  u1: { id: 'u1', nome: 'Ana Souza', email: 'ana.demo@menufacil.com', idade: 27 },
+  u2: { id: 'u2', nome: 'Bruno Lima', email: 'bruno.demo@menufacil.com', idade: 34 },
+  u3: { id: 'u3', nome: 'Carla Mendes', email: 'carla.demo@menufacil.com', idade: 22 },
+};
+
+const DEMO_PRODUCTS: Record<string, Produto> = {
+  frango: {
+    id: 1001,
+    nome: 'Frango Grelhado',
+    definicao: 'Peito de frango grelhado com ervas',
+    descricao: 'Frango grelhado suculento com tempero da casa.',
+    preco: 29.9,
+    categoria: 'PRATO_PRINCIPAL',
+    imagem_url: 'https://images.unsplash.com/photo-1604908176997-43117f6b0f10',
+    ingredientes: ['Frango', 'Alho', 'Ervas'],
+    restricoes: [],
+  },
+  arroz: {
+    id: 1002,
+    nome: 'Arroz Branco',
+    definicao: 'Arroz branco soltinho',
+    descricao: 'Arroz cozido no ponto certo.',
+    preco: 8.5,
+    categoria: 'ACOMPANHAMENTOS',
+    imagem_url: 'https://images.unsplash.com/photo-1516685018646-549d52e3b1f0',
+    ingredientes: ['Arroz', 'Sal'],
+    restricoes: [],
+  },
+  suco: {
+    id: 1003,
+    nome: 'Suco de Laranja',
+    definicao: 'Suco natural de laranja',
+    descricao: 'Suco fresco sem conservantes.',
+    preco: 9.9,
+    categoria: 'BEBIDAS',
+    imagem_url: 'https://images.unsplash.com/photo-1613478223719-2ab802602423',
+    ingredientes: ['Laranja'],
+    restricoes: ['SEM_ACUCAR'],
+  },
+  brownie: {
+    id: 1004,
+    nome: 'Brownie de Chocolate',
+    definicao: 'Brownie artesanal',
+    descricao: 'Brownie úmido com chocolate meio amargo.',
+    preco: 14.5,
+    categoria: 'SOBREMESA',
+    imagem_url: 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c',
+    ingredientes: ['Chocolate', 'Farinha', 'Manteiga'],
+    restricoes: ['SEM_GLUTEN', 'SEM_LACTOSE'],
+  },
+};
+
+const DEMO_ORDERS: Pedido[] = [
+  {
+    id: '100000101',
+    usuarioId: 'u1',
+    produtos: [
+      { produto: DEMO_PRODUCTS.frango, preco: 29.9, quantidade: 1 },
+      { produto: DEMO_PRODUCTS.arroz, preco: 8.5, quantidade: 1, observacao: 'Pouco sal' },
+    ],
+    status: 'PENDENTE',
+    horario: '12:10',
+    preco_total: 38.4,
+    criado_em: '2026-03-23T12:10:00.000Z',
+  },
+  {
+    id: '100000102',
+    usuarioId: 'u2',
+    produtos: [
+      { produto: DEMO_PRODUCTS.frango, preco: 29.9, quantidade: 2 },
+      { produto: DEMO_PRODUCTS.suco, preco: 9.9, quantidade: 1 },
+    ],
+    status: 'PENDENTE',
+    horario: '12:14',
+    preco_total: 69.7,
+    criado_em: '2026-03-23T12:14:00.000Z',
+  },
+  {
+    id: '100000103',
+    usuarioId: 'u3',
+    produtos: [
+      { produto: DEMO_PRODUCTS.frango, preco: 29.9, quantidade: 1 },
+      { produto: DEMO_PRODUCTS.brownie, preco: 14.5, quantidade: 1 },
+    ],
+    status: 'COMPLETO',
+    horario: '11:55',
+    preco_total: 44.4,
+    criado_em: '2026-03-23T11:55:00.000Z',
+    completado_em: '2026-03-23T12:02:00.000Z',
+  },
+  {
+    id: '100000104',
+    usuarioId: 'u1',
+    produtos: [
+      { produto: DEMO_PRODUCTS.suco, preco: 9.9, quantidade: 2 },
+    ],
+    status: 'CANCELADO',
+    horario: '11:30',
+    preco_total: 19.8,
+    criado_em: '2026-03-23T11:30:00.000Z',
+  },
+  {
+    id: '100000105',
+    usuarioId: 'u2',
+    produtos: [
+      { produto: DEMO_PRODUCTS.brownie, preco: 14.5, quantidade: 2 },
+    ],
+    status: 'ARQUIVADO',
+    horario: '10:42',
+    preco_total: 29,
+    criado_em: '2026-03-23T10:42:00.000Z',
+    completado_em: '2026-03-23T10:50:00.000Z',
+  },
+];
+
+const cloneDemoOrders = () => JSON.parse(JSON.stringify(DEMO_ORDERS)) as Pedido[];
 
 export function PedidosTab() {
-  const [pendentes, setPendentes] = useState<Pedido[]>([]);
-  const [completos, setCompletos] = useState<Pedido[]>([]);
-  const [cancelados, setCancelados] = useState<Pedido[]>([]);
-  const [arquivados, setArquivados] = useState<Pedido[]>([]);
-  const [usuarios, setUsuarios] = useState<Record<string, Usuario>>({});
+  const [orders, setOrders] = useState<Pedido[]>([]);
+  const [usuarios, setUsuarios] = useState<Record<string, Usuario>>(DEMO_USERS);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [autoRefresh, setAutoRefresh] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [atualizandoPedidoId, setAtualizandoPedidoId] = useState<string | null>(null);
 
   const [archiveModalData, setArchiveModalData] = useState<{ status: StatusPedido, orders: Pedido[] } | null>(null);
   const [isArchivingAll, setIsArchivingAll] = useState(false);
 
+  const sortByRecency = useCallback((a: Pedido, b: Pedido) => Number(b.id) - Number(a.id), []);
+
+  const pendentes = useMemo(() => orders.filter(o => o.status === 'PENDENTE').sort(sortByRecency), [orders, sortByRecency]);
+  const completos = useMemo(() => orders.filter(o => o.status === 'COMPLETO').sort(sortByRecency), [orders, sortByRecency]);
+  const cancelados = useMemo(() => orders.filter(o => o.status === 'CANCELADO').sort(sortByRecency), [orders, sortByRecency]);
+  const arquivados = useMemo(() => orders.filter(o => o.status === 'ARQUIVADO').sort(sortByRecency), [orders, sortByRecency]);
+
   const loadData = useCallback(async (isBackground: boolean = false) => {
-    try {
-      if (!isBackground) setLoading(true);
-      if (!isBackground) setError(null);
-      
-      const [ordersRes, usersRes] = await Promise.all([
-        api.orders.getAll(),
-        api.users.getAll().catch(() => ({ users: [] })),
-      ]);
+    if (isBackground) return;
 
-      // O banco de dados pode não retornar em ordem decrescente, vamos ordenar por id (timestamp invertido)
-      const sortByRecency = (a: Pedido, b: Pedido) => Number(b.id) - Number(a.id);
-      
-      setPendentes((ordersRes.pendentes || []).sort(sortByRecency));
-      setCompletos((ordersRes.completos || []).sort(sortByRecency));
-      setCancelados((ordersRes.cancelados || []).sort(sortByRecency));
-      setArquivados((ordersRes.arquivados || []).sort(sortByRecency));
-
-      const userMap = (usersRes.users || []).reduce((acc: Record<string, Usuario>, u) => {
-        acc[u.id] = u;
-        return acc;
-      }, {});
-      setUsuarios(userMap);
-      
-    } catch (err) {
-      if (!isBackground) setError(err instanceof Error ? err.message : 'Erro ao carregar dados');
-    } finally {
-      if (!isBackground) setLoading(false);
-    }
+    setLoading(true);
+    setError(null);
+    setOrders(cloneDemoOrders());
+    setUsuarios(DEMO_USERS);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -54,36 +154,34 @@ export function PedidosTab() {
   }, [loadData]);
 
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (autoRefresh) {
-      interval = setInterval(() => {
-        loadData(true);
-      }, 5000); // 5s refresh for orders
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
+    if (!autoRefresh) return;
+    const interval = setInterval(() => {
+      // No modo demo, auto refresh apenas re-renderiza o estado atual (sem resetar dados).
+      setOrders((prev) => [...prev]);
+    }, 5000);
+    return () => clearInterval(interval);
   }, [autoRefresh, loadData]);
 
   const handleStatusChange = async (pedidoId: string, novoStatus: StatusPedido) => {
-    try {
-      setAtualizandoPedidoId(pedidoId);
-      await api.orders.updateStatus(pedidoId, novoStatus);
-      await loadData(true);
-    } catch (err) {
-      alert('Erro ao atualizar status: ' + (err instanceof Error ? err.message : String(err)));
-    } finally {
-      setAtualizandoPedidoId(null);
-    }
+    setAtualizandoPedidoId(pedidoId);
+    setOrders((prev) =>
+      prev.map((order) =>
+        order.id === pedidoId
+          ? {
+              ...order,
+              status: novoStatus,
+              completado_em: novoStatus === 'COMPLETO' ? new Date().toISOString() : order.completado_em,
+            }
+          : order,
+      ),
+    );
+    setAtualizandoPedidoId(null);
   };
 
   const handleArchive = async (pedidoId: string) => {
-    try {
-      await api.orders.archive(pedidoId);
-      loadData(true);
-    } catch (err) {
-      alert('Erro ao arquivar: ' + (err instanceof Error ? err.message : String(err)));
-    }
+    setOrders((prev) =>
+      prev.map((order) => (order.id === pedidoId ? { ...order, status: 'ARQUIVADO' } : order)),
+    );
   };
 
   const handleArchiveAllClick = (status: StatusPedido, ordersToArchive: Pedido[]) => {
@@ -93,15 +191,10 @@ export function PedidosTab() {
   const confirmArchiveAll = async () => {
     if (!archiveModalData) return;
     setIsArchivingAll(true);
-    try {
-      await Promise.all(archiveModalData.orders.map(o => api.orders.archive(o.id)));
-      await loadData(true);
-      setArchiveModalData(null);
-    } catch (err) {
-      alert('Erro ao arquivar alguns pedidos: ' + (err instanceof Error ? err.message : String(err)));
-    } finally {
-      setIsArchivingAll(false);
-    }
+    const ids = new Set(archiveModalData.orders.map((o) => o.id));
+    setOrders((prev) => prev.map((order) => (ids.has(order.id) ? { ...order, status: 'ARQUIVADO' } : order)));
+    setArchiveModalData(null);
+    setIsArchivingAll(false);
   };
 
   const Column = ({ title, status, orders }: { title: string, status: StatusPedido, orders: Pedido[] }) => (
@@ -238,7 +331,7 @@ export function PedidosTab() {
               onChange={(e) => setAutoRefresh(e.target.checked)}
               className="rounded text-orange-500 focus:ring-orange-500 border-gray-300 w-4 h-4 cursor-pointer"
             />
-            Atualização Automática (5s)
+            Atualização visual (5s)
           </label>
           <button
             onClick={() => setShowArchived(prev => !prev)}

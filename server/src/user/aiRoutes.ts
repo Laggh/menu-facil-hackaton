@@ -5,6 +5,7 @@ import type { Request, Response } from "express";
 import ai from "../aiHelpers";
 import db from "../dbHelpers";
 import { Usuario, Produto, PedidoProduto } from "@shared/types";
+import { getAiQuotaState } from "../aiQuotaState";
 
 export default () => {
     const genAi = new GoogleGenAI({});
@@ -13,19 +14,13 @@ export default () => {
     // Rota de teste
     router.get("/", async (req: Request, res: Response) => {
         const hasApiKey = !!process.env.GOOGLE_API_KEY || !!process.env.GEMINI_API_KEY;
+        const quotaState = getAiQuotaState();
         res.json({ 
             message: "Rota de IA funcionando!",
             //apiKey: process.env.GOOGLE_API_KEY ?? process.env.GEMINI_API_KEY,
-            apiKeyConfigured: hasApiKey
+            apiKeyConfigured: hasApiKey,
+            ...quotaState,
         });
-    });
-
-    // Rota GET para teste (simples, sem IA)
-    router.get("/generate", async (req: Request, res: Response) => {
-        const prompt = req.query.prompt as string || "Escreva um poema curto sobre comida";
-        const generated = await ai.generate(prompt);
-
-        res.json({ generated });
     });
 
     // Rota para obter recomendações personalizadas para o usuário

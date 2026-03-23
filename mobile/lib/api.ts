@@ -91,7 +91,7 @@ const api = {
 
   ai: {
     /** GET /api/ia — verifica se a IA está configurada */
-    ping: (): Promise<{ message: string; apiKeyConfigured: boolean }> =>
+    ping: (): Promise<{ message: string; apiKeyConfigured: boolean; aiFunctionsMayBeUnavailable?: boolean; reason?: string | null; lastFlashQuotaErrorAt?: string | null }> =>
       request('/api/ia'),
 
     /** GET /api/ia/generate?prompt=... — gera texto com IA */

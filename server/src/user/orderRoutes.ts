@@ -1,9 +1,8 @@
 import express from "express";
 import type { Request, Response } from "express";
 import { z } from "zod";
-import { PedidoProdutoSchema, Pedido } from "@shared/types";
+import { PedidoProdutoSchema } from "@shared/types";
 import db from "../dbHelpers";
-import ai from "../aiHelpers";
 
 export default () => {
     const router = express.Router();
@@ -141,88 +140,6 @@ export default () => {
         } catch (error) {
             console.error("Erro ao buscar pedido:", error);
             res.status(500).json({ error: "Erro ao buscar pedido" });
-        }
-    });
-
-    // PUT /api/orders/:id/status — atualiza status do pedido (admin)
-    router.put("/:id/status", async (req: Request, res: Response) => {
-        const { id } = req.params;
-        const { status } = req.body;
-
-        // Validar status
-        if (!['PENDENTE', 'COMPLETO', 'CANCELADO', 'ARQUIVADO'].includes(status)) {
-            res.status(400).json({ error: "Status inválido. Use: PENDENTE, COMPLETO, CANCELADO ou ARQUIVADO" });
-            return;
-        }
-
-        try {
-            // Buscar o pedido ANTES de atualizar para saber qual era o status anterior
-            const orderBefore = await db.order.getById(id);
-            if (!orderBefore) {
-                res.status(404).json({ error: "Pedido não encontrado" });
-                return;
-            }
-
-            const previousStatus = orderBefore.status;
-            const updatedOrder = await db.order.updateStatus(id, status);
-            if (!updatedOrder) {
-                res.status(404).json({ error: "Pedido não encontrado" });
-                return;
-            }
-
-            // APENAS gerar/atualizar a etiqueta quando transição é PENDENTE → COMPLETO
-            // Não fazer nada ao desarquivar ou fazer outras transições
-            if (previousStatus === 'PENDENTE' && status === 'COMPLETO') {
-                try {
-                    const usuario = await db.user.getById(updatedOrder.usuarioId);
-                    if (usuario) {
-                        // Buscar os últimos 5 pedidos completados do usuário (excluindo o atual)
-                        const allUserOrders = await db.order.getByUserId(updatedOrder.usuarioId);
-                        const completedOrders = allUserOrders
-                            .filter((o: any) => o.status === 'COMPLETO' && o.id !== updatedOrder.id)
-                            .sort((a: any, b: any) => Number(b.id) - Number(a.id))
-                            .slice(0, 5); // Últimos 5 pedidos
-
-                        const { data: novaEtiqueta, error: tagError, taskCreated } = await ai.generateUserTag(usuario, updatedOrder, completedOrders);
-                        
-                        if (novaEtiqueta && !tagError) {
-                            // Atualizar o usuário com a nova etiqueta
-                            await db.user.update(usuario.id, { etiqueta: novaEtiqueta });
-                            console.log(`✅ Etiqueta atualizada para usuário ${usuario.id}:`, novaEtiqueta);
-                        } else if (taskCreated) {
-                            // Se houve erro mas uma task foi criada, logar isso
-                            console.warn(`⏳ Task criada para gerar etiqueta (ID: ${taskCreated}) - Será executada em breve. Erro detalhes:`, tagError);
-                        } else {
-                            console.warn(`❌ Erro ao gerar etiqueta para usuário ${usuario.id}:`, tagError);
-                        }
-                    }
-                } catch (tagError) {
-                    // Não falha a requisição se houver erro na geração de etiqueta
-                    console.error("❌ Erro ao processar etiqueta do usuário:", tagError);
-                }
-            }
-
-            res.json({ order: updatedOrder });
-        } catch (error) {
-            console.error("Erro ao atualizar status do pedido:", error);
-            res.status(500).json({ error: "Erro ao atualizar status do pedido" });
-        }
-    });
-
-    // PUT /api/orders/:id/archive — arquiva um pedido
-    router.put("/:id/archive", async (req: Request, res: Response) => {
-        const { id } = req.params;
-
-        try {
-            const updatedOrder = await db.order.updateStatus(id, "ARQUIVADO");
-            if (!updatedOrder) {
-                res.status(404).json({ error: "Pedido não encontrado" });
-                return;
-            }
-            res.json({ order: updatedOrder });
-        } catch (error) {
-            console.error("Erro ao arquivar pedido:", error);
-            res.status(500).json({ error: "Erro ao arquivar pedido" });
         }
     });
 

@@ -34,6 +34,35 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next()
 })
 
+// Modo demonstração: bloqueia operações que alteram estado no servidor.
+// Mantém apenas alguns POSTs técnicos permitidos para fluxo de IA/upload.
+const BLOCKED_WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"])
+const ALLOWED_DEMO_POST_PATHS = new Set([
+  "/api/products/generate-description",
+  "/api/products/suggest",
+  "/api/ia/suggest-from-cart",
+  "/api/upload",
+  "/api/user/login",
+])
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const method = req.method.toUpperCase()
+
+  if (!BLOCKED_WRITE_METHODS.has(method)) {
+    next()
+    return
+  }
+
+  if (method === "POST" && ALLOWED_DEMO_POST_PATHS.has(req.path)) {
+    next()
+    return
+  }
+
+  res.status(403).json({
+    error: "Funcionalidade indisponível nesta demonstração para preservar o estado atual",
+  })
+})
+
 // ========== ROTAS ==========
 // IMPORT DAS ROTAS
 import aiRoutes from './user/aiRoutes'
@@ -53,18 +82,6 @@ app.use('/api/orders/', orderRoutes()) // Rota para pedidos
 app.use('/api/tasks', taskRoutes()) // Rota para tasks
 app.use('/api/log', logRoutes()) // Rota para logs
 app.use('/api/upload', uploadRoute()) // Rota para upload de imagens
-
-app.get("/db", async (req: Request, res: Response) => {
-    try {
-        await db.set("test_key", "Hello, Redis!")
-        const value = await db.get("test_key")
-        res.json({ value })
-    }
-    catch (error) {
-        console.error("Erro ao acessar o banco de dados:", error)
-        res.status(500).json({ error: "Erro ao acessar o banco de dados" })
-    } 
-})
 
 // Rota de ping
 app.get('/ping', (req: Request, res: Response) => {

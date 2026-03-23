@@ -34,6 +34,27 @@ const RESTRICAO_INVERTED: Record<string, string> = {
 };
 
 const ALL_CATEGORIAS = Object.keys(CATEGORIA_LABELS) as Categoria[];
+const PRODUCTS_CACHE_KEY = 'web:cardapio:products';
+
+function readProductsCache(): Produto[] | null {
+  try {
+    const raw = localStorage.getItem(PRODUCTS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    return parsed as Produto[];
+  } catch {
+    return null;
+  }
+}
+
+function writeProductsCache(products: Produto[]) {
+  try {
+    localStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify(products));
+  } catch {
+    // Ignora falhas de cache para nao quebrar a tela.
+  }
+}
 
 interface CardapioTabProps {
   showToast: (message: string, type?: 'success' | 'error') => void;
@@ -50,11 +71,20 @@ export function CardapioTab({ showToast }: CardapioTabProps) {
   const [categoryFilter, setCategoryFilter] = useState<Categoria | 'ALL'>('ALL');
 
   const loadProducts = useCallback(async () => {
+    const cachedProducts = readProductsCache();
+    if (cachedProducts) {
+      setProducts(cachedProducts);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       const { products } = await api.products.getAll();
       setProducts(products);
+      writeProductsCache(products);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar produtos');
     } finally {
@@ -80,7 +110,11 @@ export function CardapioTab({ showToast }: CardapioTabProps) {
     setDeletingId(id);
     try {
       await api.products.delete(id);
-      setProducts((prev) => prev.filter((p) => p.id !== id));
+      setProducts((prev) => {
+        const next = prev.filter((p) => p.id !== id);
+        writeProductsCache(next);
+        return next;
+      });
       showToast('Produto excluído com sucesso!', 'success');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Erro ao excluir produto', 'error');
@@ -93,17 +127,20 @@ export function CardapioTab({ showToast }: CardapioTabProps) {
     try {
       if (editingProduct) {
         const { product } = await api.products.update(editingProduct.id, data);
-        setProducts((prev) => prev.map((p) => (p.id === editingProduct.id ? product : p)));
+        setProducts((prev) => {
+          const next = prev.map((p) => (p.id === editingProduct.id ? product : p));
+          writeProductsCache(next);
+          return next;
+        });
         showToast('Produto atualizado com sucesso!', 'success');
       } else {
-        const { product } = await api.products.create(data);
-        setProducts((prev) => [...prev, product]);
-        showToast('Produto criado com sucesso!', 'success');
+        throw new Error('Por segurança, é impossível criar produtos nesta demonstração.');
       }
       setModalOpen(false);
     } catch (err) {
       console.error(err);
-      showToast('Erro ao salvar produto.', 'error');
+      const message = err instanceof Error ? err.message : 'Erro ao salvar produto.';
+      showToast(message, 'error');
       throw err;
     }
   };

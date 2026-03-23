@@ -8,6 +8,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') })
 
 import { Restricao, RestricaoArray, Produto, Usuario, PedidoProduto } from "@shared/types";
 import db from "./dbHelpers";
+import { registerFlashQuotaError } from "./aiQuotaState";
 
 const genAi = new GoogleGenAI({});
 
@@ -60,6 +61,10 @@ export const generate = async (prompt: string, schema?: any, model = "gemini-3-f
                           'UNKNOWN_ERROR');
         
         console.error(`[${model}] ERROR (${errorCode}) after ${duration}ms: ${errorMessage}`);
+
+        if (registerFlashQuotaError(model, error)) {
+            console.warn(`[AI_QUOTA] Quota de modelo flash detectada em ${model}. Funcoes de IA podem ficar indisponiveis.`);
+        }
         
         // Faz log da requisição com erro
         await db.log.gemini({
@@ -152,6 +157,10 @@ export const generateWithFallback = async (prompt: string, schema?: any): Promis
                  'UNKNOWN_ERROR');
             
             console.error(`[FALLBACK] ❌ Ambos modelos falharam (${fallbackErrorCode}): ${fallbackErrorMessage}`);
+
+            if (registerFlashQuotaError("gemini-2.5-flash-lite", fallbackError)) {
+                console.warn("[AI_QUOTA] Quota de modelo flash detectada no fallback lite.");
+            }
             
             // Faz log do erro do fallback também
             await db.log.gemini({

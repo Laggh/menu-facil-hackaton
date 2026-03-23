@@ -18,6 +18,7 @@ type Toast = {
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('CARDAPIO');
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [showAiUnavailablePopup, setShowAiUnavailablePopup] = useState(false);
   
   const [pendentesCount, setPendentesCount] = useState(0);
   const [pendentesTasksCount, setPendentesTasksCount] = useState(0);
@@ -28,6 +29,23 @@ function App() {
   const [isSistemaOpen, setIsSistemaOpen] = useState(true);
   
   const initialLoadDone = useRef(false);
+  const aiUnavailablePopupShown = useRef(false);
+
+  useEffect(() => {
+    const checkAiQuotaState = async () => {
+      try {
+        const status = await api.ai.ping();
+        if (status.aiFunctionsMayBeUnavailable && !aiUnavailablePopupShown.current) {
+          aiUnavailablePopupShown.current = true;
+          setShowAiUnavailablePopup(true);
+        }
+      } catch (error) {
+        console.error('Falha ao consultar status de IA', error);
+      }
+    };
+
+    checkAiQuotaState();
+  }, []);
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -274,6 +292,23 @@ function App() {
           </div>
         ))}
       </div>
+
+      {showAiUnavailablePopup && (
+        <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100 p-6">
+            <h3 className="text-lg font-bold text-gray-900">Aviso</h3>
+            <p className="mt-2 text-sm text-gray-700">funções de IA podem estar indisponiveis</p>
+            <div className="mt-5 flex justify-end">
+              <button
+                onClick={() => setShowAiUnavailablePopup(false)}
+                className="px-4 py-2 text-sm font-semibold bg-gray-900 text-white rounded-lg hover:bg-black transition-colors"
+              >
+                Entendi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

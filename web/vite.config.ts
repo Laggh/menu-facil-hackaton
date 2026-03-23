@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
-      '@shared/types': resolve(__dirname, '../shared/index.ts'),
+      '@shared/types': resolve(__dirname, './shared/index.ts'),
     },
   },
 })

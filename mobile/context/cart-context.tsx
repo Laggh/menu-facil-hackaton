@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { Produto, PedidoProduto, Pedido } from '@shared/types';
+import type { Produto, PedidoProduto } from '@shared/types';
 import api from '@/lib/api';
 
 interface CartContextValue {
@@ -13,7 +13,6 @@ interface CartContextValue {
   updateQty: (produtoId: number, qty: number) => void;
   updateObservacao: (produtoId: number, observacao: string) => void;
   clearCart: () => void;
-  placeOrder: () => Promise<Pedido>;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -129,17 +128,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setSuggestions([]);
   };
 
-  const placeOrder = async () => {
-    if (cart.length === 0) throw new Error('Carrinho vazio');
-    const result = await api.orders.create(cart);
-    clearCart();
-    // Recarregar recomendações do usuário após realizar o pedido
-    await fetchUserRecommendations();
-    return result.order;
-  };
-
   return (
-    <CartContext.Provider value={{ cart, suggestions, loadingSuggestions, userRecommendations, loadingUserRecommendations, addToCart, removeFromCart, updateQty, updateObservacao, clearCart, placeOrder }}>
+    <CartContext.Provider value={{ cart, suggestions, loadingSuggestions, userRecommendations, loadingUserRecommendations, addToCart, removeFromCart, updateQty, updateObservacao, clearCart }}>
       {children}
     </CartContext.Provider>
   );

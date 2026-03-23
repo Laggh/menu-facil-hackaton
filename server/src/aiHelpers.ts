@@ -7,8 +7,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.resolve(__dirname, '../.env') })
 
 import { Restricao, RestricaoArray, Produto, Usuario, PedidoProduto } from "@shared/types";
-import db from "./dbHelpers";
-import { registerFlashQuotaError } from "./aiQuotaState";
+import db from "./dbHelpers.js";
+import { registerFlashQuotaError } from "./aiQuotaState.js";
 
 const genAi = new GoogleGenAI({});
 

@@ -23,7 +23,7 @@ const PRICE_COLOR = '#00BFA5';
 const ACCENT_COLOR = '#FF9800';
 
 export default function CartScreen() {
-  const { cart, updateQty, removeFromCart, updateObservacao, placeOrder, addToCart, suggestions, loadingSuggestions } = useCart();
+  const { cart, updateQty, removeFromCart, updateObservacao, clearCart, addToCart, suggestions, loadingSuggestions } = useCart();
   const { user } = useUser();
   const [editing, setEditing] = useState<PedidoProduto | null>(null);
   const [editObs, setEditObs] = useState('');
@@ -83,13 +83,9 @@ export default function CartScreen() {
   const handleConfirmOrder = async () => {
     try {
       setPlacing(true);
-      const order = await placeOrder();
+      clearCart();
       setShowConfirmModal(false);
-      Alert.alert('Pedido realizado!', 'Seu pedido foi enviado com sucesso.');
-      router.replace({
-        pathname: '/order-detail',
-        params: { id: order.id },
-      });
+      Alert.alert('Funcao indisponivel na demo', 'Por seguranca, realizar pedidos nao esta disponivel nesta demonstracao. O carrinho foi limpo.');
     } catch (e: any) {
       Alert.alert('Erro', e?.message ?? 'Não foi possível realizar o pedido.');
     } finally {

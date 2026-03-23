@@ -6,7 +6,7 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import db from './dbHelpers'
+import db from './dbHelpers.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -65,14 +65,14 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 // ========== ROTAS ==========
 // IMPORT DAS ROTAS
-import aiRoutes from './user/aiRoutes'
-import userRoutes from './user/userRoutes'
-import productRoutes from './user/productRoutes'
-import orderRoutes from './user/orderRoutes'
-import logRoutes from './user/logRoutes'
-import taskRoutes from './user/taskRoutes'
-import uploadRoute from './uploadRoute'
-import { startTaskWorker } from './taskWorker'
+import aiRoutes from './user/aiRoutes.js'
+import userRoutes from './user/userRoutes.js'
+import productRoutes from './user/productRoutes.js'
+import orderRoutes from './user/orderRoutes.js'
+import logRoutes from './user/logRoutes.js'
+import taskRoutes from './user/taskRoutes.js'
+import uploadRoute from './uploadRoute.js'
+import { startTaskWorker } from './taskWorker.js'
 
 // USO DAS ROTAS
 app.use('/api/ia/', aiRoutes()) // Rota para funcionalidades de IA
@@ -94,9 +94,13 @@ app.get('/', (req: Request, res: Response) => {
 })
 
 // Iniciar servidor
-app.listen(PORT, () => {
-  console.log(`🍔 Servidor rodando na porta ${PORT}`)
-  
-  // Iniciar task worker
-  startTaskWorker()
-})
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🍔 Servidor rodando na porta ${PORT}`)
+
+    // Iniciar task worker apenas no ambiente servidor tradicional.
+    startTaskWorker()
+  })
+}
+
+export default app

@@ -2,10 +2,10 @@ import { GoogleGenAI } from "@google/genai";
 import express from "express";
 import type { Request, Response } from "express";
 
-import ai from "../aiHelpers";
-import db from "../dbHelpers";
+import ai from "../aiHelpers.js";
+import db from "../dbHelpers.js";
 import { Usuario, Produto, PedidoProduto } from "@shared/types";
-import { getAiQuotaState } from "../aiQuotaState";
+import { getAiQuotaState } from "../aiQuotaState.js";
 
 export default () => {
     const genAi = new GoogleGenAI({});

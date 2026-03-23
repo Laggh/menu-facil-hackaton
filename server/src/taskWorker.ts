@@ -1,5 +1,5 @@
-import db from './dbHelpers';
-import * as ai from './aiHelpers';
+import db from './dbHelpers.js';
+import * as ai from './aiHelpers.js';
 
 /**
  * Task Worker

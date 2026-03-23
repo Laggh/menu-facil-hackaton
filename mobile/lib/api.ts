@@ -1,6 +1,18 @@
 import type { Produto, Restricao, PedidoProduto, Pedido, Usuario } from '@shared/types';
 
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = (process.env.EXPO_PUBLIC_API_URL || 'https://server-lagghs-projects.vercel.app').replace(/\/$/, '');
+const VERCEL_BYPASS_TOKEN = process.env.EXPO_PUBLIC_VERCEL_BYPASS_TOKEN || '';
+
+function buildApiUrl(path: string): string {
+  const url = new URL(`${BASE_URL}${path}`);
+
+  if (VERCEL_BYPASS_TOKEN) {
+    url.searchParams.set('x-vercel-set-bypass-cookie', 'true');
+    url.searchParams.set('x-vercel-protection-bypass', VERCEL_BYPASS_TOKEN);
+  }
+
+  return url.toString();
+}
 
 // Armazena o userID localmente (será melhorado com AsyncStorage)
 let currentUserId: string | null = null;
@@ -20,7 +32,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     headers['x-user-id'] = currentUserId;
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(buildApiUrl(path), {
     ...options,
     headers: {
       ...headers,
@@ -93,10 +105,6 @@ const api = {
     /** GET /api/ia — verifica se a IA está configurada */
     ping: (): Promise<{ message: string; apiKeyConfigured: boolean; aiFunctionsMayBeUnavailable?: boolean; reason?: string | null; lastFlashQuotaErrorAt?: string | null }> =>
       request('/api/ia'),
-
-    /** GET /api/ia/generate?prompt=... — gera texto com IA */
-    generate: (prompt: string): Promise<{ generated: string }> =>
-      request(`/api/ia/generate?prompt=${encodeURIComponent(prompt)}`),
 
     /** GET /api/ia/recommendations — retorna recomendações personalizadas para o usuário */
     getRecommendations: (): Promise<{ recommendations: Produto[], error?: string | null }> =>

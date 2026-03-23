@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import db from '../dbHelpers';
+import db from '../dbHelpers.js';
 import type {
     GetAllTasksResponse,
     ErrorResponse,

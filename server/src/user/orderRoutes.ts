@@ -2,7 +2,7 @@ import express from "express";
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { PedidoProdutoSchema } from "@shared/types";
-import db from "../dbHelpers";
+import db from "../dbHelpers.js";
 
 export default () => {
     const router = express.Router();

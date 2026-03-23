@@ -4,8 +4,8 @@ import { z } from "zod";
 
 import { Produto, ProdutoSchema, Restricao, RestricaoArray, Usuario, PedidoProduto, PedidoProdutoSchema } from "@shared/types";
 
-import db from "../dbHelpers";
-import ai from "../aiHelpers";
+import db from "../dbHelpers.js";
+import ai from "../aiHelpers.js";
 
 export default () => {
     const router = express.Router();

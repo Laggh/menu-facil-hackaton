@@ -1,6 +1,18 @@
 import type { Produto, Restricao, GeminiLog, Usuario, Pedido, StatusPedido, PedidoProduto, Task } from '@shared/types';
 
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = (import.meta.env.VITE_API_URL || 'https://server-lagghs-projects.vercel.app').replace(/\/$/, '');
+const VERCEL_BYPASS_TOKEN = import.meta.env.VITE_VERCEL_BYPASS_TOKEN || '';
+
+function buildApiUrl(path: string): string {
+  const url = new URL(`${BASE_URL}${path}`);
+
+  if (VERCEL_BYPASS_TOKEN) {
+    url.searchParams.set('x-vercel-set-bypass-cookie', 'true');
+    url.searchParams.set('x-vercel-protection-bypass', VERCEL_BYPASS_TOKEN);
+  }
+
+  return url.toString();
+}
 
 // Função auxiliar para obter user ID do localStorage (ou de onde estiver armazenado)
 function getUserId(): string | null {
@@ -14,7 +26,7 @@ function getUserId(): string | null {
 async function uploadImage(file: File): Promise<{ url: string }> {
   const formData = new FormData();
   formData.append('file', file);
-  const res = await fetch(`${BASE_URL}/api/upload`, {
+  const res = await fetch(buildApiUrl('/api/upload'), {
     method: 'POST',
     body: formData,
   });
@@ -26,7 +38,7 @@ async function uploadImage(file: File): Promise<{ url: string }> {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, options);
+  const res = await fetch(buildApiUrl(path), options);
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
@@ -44,7 +56,7 @@ async function requestWithHeaders<T>(path: string, options?: RequestInit & { hea
     headers['x-user-id'] = userId;
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(buildApiUrl(path), {
     ...options,
     headers,
   });

@@ -3,7 +3,7 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 
 import { UsuarioSchema, Usuario } from "@shared/types";
-import db from "../dbHelpers";
+import db from "../dbHelpers.js";
 
 // Middleware para extrair ID do header
 const getUserIdFromHeader = (req: Request): string | null => {

@@ -14,3 +14,6 @@ yarn-error.log*
 *.swo
 *.tmp
 .turbo/
+/server/.vercel
+/web/.vercel
+/mobile/.vercel
